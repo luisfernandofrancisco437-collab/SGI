@@ -1066,10 +1066,14 @@ body.auth-locked #auth-screen{display:flex}
         </div>
         <div>
           <label>Operação <span class="req">*</span></label>
-          <select id="f-op">
+          <select id="f-op" onchange="toggleValorVendaCadastro()">
             <option value="">Selecione...</option>
             <option>Venda</option><option>Locação</option><option>Locação ou Venda</option>
           </select>
+        </div>
+        <div id="f-valor-venda-wrap" style="display:none">
+          <label>Valor de Venda (R$) <span class="req">*</span></label>
+          <input id="f-valor-venda" type="text" placeholder="0,00">
         </div>
         <div>
           <label>Disponibilidade <span class="req">*</span></label>
@@ -2337,8 +2341,9 @@ body.auth-locked #auth-screen{display:flex}
         </div>
         <div><label>Valor (R$) <span class="req">*</span></label><input id="mi-valor" type="text"></div>
         <div><label>Operação <span class="req">*</span></label>
-          <select id="mi-op"><option>Venda</option><option>Locação</option><option>Locação ou Venda</option></select>
+          <select id="mi-op" onchange="toggleValorVendaEdicao()"><option>Venda</option><option>Locação</option><option>Locação ou Venda</option></select>
         </div>
+        <div id="mi-valor-venda-wrap" style="display:none"><label>Valor de Venda (R$) <span class="req">*</span></label><input id="mi-valor-venda" type="text"></div>
         <div><label>Disponibilidade <span class="req">*</span></label>
           <select id="mi-disp">
             <option>Disponível</option><option>Indisponível</option>
@@ -4358,21 +4363,34 @@ function atualizarCod() { document.getElementById("f-codigo").value = gerarCod()
 
 document.getElementById("f-tel").addEventListener("input", function(){ this.value = mascaraTel(this.value); });
 document.getElementById("f-valor").addEventListener("input", function(){ this.value = mascaraVal(this.value); });
+var _fValorVendaEl = document.getElementById("f-valor-venda");
+if (_fValorVendaEl) _fValorVendaEl.addEventListener("input", function(){ this.value = mascaraVal(this.value); });
+function toggleValorVendaCadastro() {
+  var op = document.getElementById("f-op");
+  var wrap = document.getElementById("f-valor-venda-wrap");
+  if (!op || !wrap) return;
+  wrap.style.display = op.value === "Locação ou Venda" ? "" : "none";
+  if (op.value !== "Locação ou Venda") {
+    var v = document.getElementById("f-valor-venda");
+    if (v) v.value = "";
+  }
+}
 var _prevValorEl = document.getElementById("prev-valor");
 if (_prevValorEl) _prevValorEl.addEventListener("input", function(){ this.value = mascaraVal(this.value); });
 
 function salvarImovel() {
   var g = function(id){ return document.getElementById(id).value.trim(); };
   var campos = {prop:g("f-prop"), tel:g("f-tel"), rua:g("f-rua"), bairro:g("f-bairro"),
-                cidade:g("f-cidade"), tipo:g("f-tipo"), valor:g("f-valor"), op:g("f-op"), disp:g("f-disp")};
-  if (Object.keys(campos).some(function(k){ return !campos[k]; })) {
+                cidade:g("f-cidade"), tipo:g("f-tipo"), valor:g("f-valor"), op:g("f-op"), disp:g("f-disp"),
+                valorVenda:g("f-valor-venda")};
+  if (Object.keys(campos).some(function(k){ return k !== "valorVenda" && !campos[k]; }) || (campos.op === "Locação ou Venda" && !campos.valorVenda)) {
     toast("⚠️ Preencha todos os campos obrigatórios!", true); return;
   }
   var cod = gerarCod();
   DB.imoveis.push({
     codigo:cod, prop:campos.prop, tel:campos.tel, rua:campos.rua,
     bairro:campos.bairro, cidade:campos.cidade, tipo:campos.tipo,
-    valor:parseMoeda(campos.valor), op:campos.op, disp:campos.disp,
+    valor:parseMoeda(campos.valor), valorVenda:campos.op === "Locação ou Venda" ? parseMoeda(campos.valorVenda) : (campos.op === "Venda" ? parseMoeda(campos.valor) : 0), op:campos.op, disp:campos.disp,
     cond:g("f-cond"), obs:g("f-obs"), data:new Date().toLocaleDateString("pt-BR"),
     area:g("f-area"), quartos:g("f-quartos"), suites:g("f-suites"),
     banheiros:g("f-banheiros"), vagas:g("f-vagas"), posicao:g("f-posicao"),
@@ -4390,13 +4408,14 @@ function salvarImovel() {
 }
 
 function limparFormImovel() {
-  ["f-prop","f-tel","f-rua","f-bairro","f-cidade","f-tipo","f-valor","f-op","f-disp",
+  ["f-prop","f-tel","f-rua","f-bairro","f-cidade","f-tipo","f-valor","f-valor-venda","f-op","f-disp",
    "f-cond","f-obs","f-area","f-quartos","f-suites","f-banheiros","f-vagas","f-posicao","f-andar","f-iptu","f-condominio"]
     .forEach(function(id){ document.getElementById(id).value = ""; });
   var dw = document.getElementById("f-diferenciais-wrap");
   if (dw) dw.querySelectorAll("input[type=checkbox]").forEach(function(cb){ cb.checked=false; });
   var fg = document.getElementById("f-foto-grid");
   if (fg) { fg.innerHTML=""; fg._fotos=[]; }
+  toggleValorVendaCadastro();
   atualizarCod();
 }
 
@@ -4418,6 +4437,8 @@ function editarImovel(cod) {
   document.getElementById("mi-tipo").value   = im.tipo;
   document.getElementById("mi-valor").value  = im.valor.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
   document.getElementById("mi-op").value     = im.op;
+  var miValorVendaEl = document.getElementById("mi-valor-venda");
+  if (miValorVendaEl) miValorVendaEl.value = im.valorVenda ? Number(im.valorVenda).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}) : "";
   document.getElementById("mi-disp").value   = im.disp;
   document.getElementById("mi-cond").value   = im.cond || "";
   document.getElementById("mi-obs").value    = im.obs || "";
@@ -4440,17 +4461,31 @@ function editarImovel(cod) {
   }
   // Fotos
   renderFotoGrid("mi-foto-grid", im.fotos || []);
+  toggleValorVendaEdicao();
   document.getElementById("modal-im-bg").classList.add("open");
 }
 
 document.getElementById("mi-tel").addEventListener("input", function(){ this.value = mascaraTel(this.value); });
 document.getElementById("mi-valor").addEventListener("input", function(){ this.value = mascaraVal(this.value); });
+var _miValorVendaEl = document.getElementById("mi-valor-venda");
+if (_miValorVendaEl) _miValorVendaEl.addEventListener("input", function(){ this.value = mascaraVal(this.value); });
+function toggleValorVendaEdicao() {
+  var op = document.getElementById("mi-op");
+  var wrap = document.getElementById("mi-valor-venda-wrap");
+  if (!op || !wrap) return;
+  wrap.style.display = op.value === "Locação ou Venda" ? "" : "none";
+  if (op.value !== "Locação ou Venda") {
+    var v = document.getElementById("mi-valor-venda");
+    if (v) v.value = "";
+  }
+}
 
 function salvarEdicaoImovel() {
   var g = function(id){ return document.getElementById(id).value.trim(); };
   var campos = {prop:g("mi-prop"), tel:g("mi-tel"), rua:g("mi-rua"), bairro:g("mi-bairro"),
-                cidade:g("mi-cidade"), tipo:g("mi-tipo"), valor:g("mi-valor"), op:g("mi-op"), disp:g("mi-disp")};
-  if (Object.keys(campos).some(function(k){ return !campos[k]; })) {
+                cidade:g("mi-cidade"), tipo:g("mi-tipo"), valor:g("mi-valor"), op:g("mi-op"), disp:g("mi-disp"),
+                valorVenda:g("mi-valor-venda")};
+  if (Object.keys(campos).some(function(k){ return k !== "valorVenda" && !campos[k]; }) || (campos.op === "Locação ou Venda" && !campos.valorVenda)) {
     toast("⚠️ Preencha todos os campos obrigatórios!", true); return;
   }
   var idx = DB.imoveis.findIndex(function(x){ return x.codigo === editImId; });
@@ -4458,6 +4493,7 @@ function salvarEdicaoImovel() {
   Object.assign(DB.imoveis[idx], {
     prop:campos.prop, tel:campos.tel, rua:campos.rua, bairro:campos.bairro,
     cidade:campos.cidade, tipo:campos.tipo, valor:parseMoeda(campos.valor),
+    valorVenda:campos.op === "Locação ou Venda" ? parseMoeda(campos.valorVenda) : (campos.op === "Venda" ? parseMoeda(campos.valor) : 0),
     op:campos.op, disp:campos.disp, cond:g("mi-cond"), obs:g("mi-obs"),
     area:g("mi-area"), quartos:g("mi-quartos"), suites:g("mi-suites"),
     banheiros:g("mi-banheiros"), vagas:g("mi-vagas"), posicao:g("mi-posicao"),
