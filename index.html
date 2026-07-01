@@ -892,6 +892,30 @@ body.auth-locked #auth-screen{display:flex}
 .admin-grid{display:grid;grid-template-columns:minmax(280px,.8fr) minmax(420px,1.4fr);gap:16px;align-items:start}
 .admin-user-status{display:inline-block;padding:3px 8px;border-radius:10px;font-size:.7rem;font-weight:800}
 @media(max-width:760px){.auth-shell{grid-template-columns:1fr}.auth-brand{padding:25px}.auth-brand img{width:68px;height:68px}.auth-brand p,.auth-brand>small{display:none}.auth-form-wrap{padding:28px 22px}.admin-grid{grid-template-columns:1fr}.auth-user-chip{display:none}}
+
+/* followup-auto-v1 */
+.follow-auto-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:16px}
+.follow-auto-kpi{background:rgba(255,255,255,.86);border:1px solid rgba(67,66,71,.12);border-radius:12px;padding:14px;box-shadow:0 12px 32px rgba(67,66,71,.10)}
+.follow-auto-kpi small{display:block;color:#64748B;font-weight:800;font-size:.7rem;margin-bottom:7px}
+.follow-auto-kpi strong{display:block;color:#27262B;font-size:1.45rem;line-height:1}
+.follow-auto-kpi span{display:block;color:#64748B;font-size:.72rem;margin-top:7px}
+.follow-auto-board{display:flex;gap:12px;overflow-x:auto;padding-bottom:8px;align-items:flex-start}
+.follow-auto-col{min-width:235px;flex:0 0 235px;background:#F1F5F9;border-radius:12px;padding:0 9px 9px;max-height:calc(100vh - 290px);overflow:auto}
+.follow-auto-head{position:sticky;top:0;z-index:2;margin:0 -9px 9px;padding:9px 10px;border-radius:12px 12px 8px 8px;color:#fff;font-weight:900;font-size:.78rem;display:flex;justify-content:space-between;gap:8px;align-items:center}
+.follow-auto-card{background:#fff;border-radius:9px;padding:10px;margin-bottom:8px;box-shadow:0 1px 6px rgba(15,23,42,.10);border-left:4px solid #7C3AED;cursor:pointer}
+.follow-auto-card b{display:block;color:#27262B;font-size:.82rem}
+.follow-auto-card small{display:block;color:#64748B;font-size:.7rem;margin-top:3px;line-height:1.35}
+.follow-auto-tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px}
+.follow-auto-tag{display:inline-flex;align-items:center;border-radius:999px;padding:3px 7px;background:#EDE9FE;color:#5B21B6;font-size:.62rem;font-weight:900}
+.follow-auto-actions{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.follow-auto-actions .btn{padding:5px 8px;font-size:.68rem}
+.follow-auto-log{margin-top:10px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:9px;max-height:150px;overflow:auto}
+.follow-auto-log div{font-size:.7rem;color:#475569;border-bottom:1px solid #E2E8F0;padding:5px 0}
+.follow-auto-log div:last-child{border-bottom:0}
+.follow-settings-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.follow-settings-grid input{background:#fff}
+.badge-follow-auto{background:#EDE9FE;color:#5B21B6;border-radius:999px;padding:3px 8px;font-size:.64rem;font-weight:900;display:inline-flex;margin-top:6px}
+
 </style>
 </head>
 <body class="auth-locked">
@@ -1717,11 +1741,19 @@ body.auth-locked #auth-screen{display:flex}
 
 <!-- ═══════════ FOLLOW-UP ═══════════ -->
 <div id="tab-followup" class="panel">
-  <div style="margin-bottom:18px">
-    <h2 style="color:var(--azul);font-size:1.1rem;font-weight:700">⏰ Central de Follow-up</h2>
-    <p style="color:#64748B;font-size:.8rem;margin-top:3px">Acompanhamentos urgentes e agenda completa de contatos.</p>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;gap:10px;flex-wrap:wrap">
+    <div>
+      <h2 style="color:var(--azul);font-size:1.1rem;font-weight:700">⏰ Pipeline de Follow-up e Reativação</h2>
+      <p style="color:#64748B;font-size:.8rem;margin-top:3px">Reativa leads inativos, cria tarefas automáticas e mede o retorno para o pipeline principal.</p>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-info" onclick="crmFollowupRodarAutomacao(true)">Rodar automação agora</button>
+      <button class="btn btn-primary" onclick="showTab('agenda')">Ver tarefas</button>
+    </div>
   </div>
-  <div id="followup-urgente-host"></div>
+  <div id="followup-auto-kpis" class="follow-auto-kpis"></div>
+  <div id="followup-auto-board" class="follow-auto-board"></div>
+  <div id="followup-urgente-host" style="margin-top:18px"></div>
   <div id="followup-completo-host"></div>
 </div>
 
@@ -1825,6 +1857,29 @@ body.auth-locked #auth-screen{display:flex}
       <button type="button" class="btn btn-primary" onclick="authBaixarIndexComUsuarios()">Baixar index com usuários</button>
       <button type="button" class="btn btn-info" onclick="authCopiarUsuariosPublicacao()">Copiar usuários</button>
       <div id="admin-user-count" class="badge" style="background:#E8E7EA;color:#434247"></div>
+    </div>
+  </div>
+  <div class="card" style="grid-column:1/-1">
+    <div class="card-header">⚙️ Parâmetros do Follow-up Automático</div>
+    <div class="card-body">
+      <div class="follow-settings-grid">
+        <div><label>Inatividade para reativação (dias)</label><input id="fu-cfg-inatividade" type="number" min="1" value="7"></div>
+        <div><label>Pausa/perdido para reativar (dias)</label><input id="fu-cfg-pausa" type="number" min="1" value="30"></div>
+        <div><label>Tentativa 1 (dias)</label><input id="fu-cfg-t1" type="number" min="0" value="1"></div>
+        <div><label>Tentativa 2 (dias)</label><input id="fu-cfg-t2" type="number" min="0" value="3"></div>
+        <div><label>Tentativa 3 (dias)</label><input id="fu-cfg-t3" type="number" min="0" value="5"></div>
+        <div><label>Tentativa 4 (dias)</label><input id="fu-cfg-t4" type="number" min="0" value="10"></div>
+        <div><label>Tentativa 5 (dias)</label><input id="fu-cfg-t5" type="number" min="0" value="15"></div>
+        <div><label>Tentativa 6 (dias)</label><input id="fu-cfg-t6" type="number" min="0" value="30"></div>
+        <div><label>Tentativa 7 (dias)</label><input id="fu-cfg-t7" type="number" min="0" value="60"></div>
+        <div><label>Tentativa 8 (dias)</label><input id="fu-cfg-t8" type="number" min="0" value="90"></div>
+        <div><label>Tentativa 9 (dias)</label><input id="fu-cfg-t9" type="number" min="0" value="180"></div>
+        <div><label>Tentativa 10 (dias)</label><input id="fu-cfg-t10" type="number" min="0" value="365"></div>
+      </div>
+      <div class="btn-row">
+        <button type="button" class="btn btn-primary" onclick="crmFollowupSalvarConfig()">Salvar parâmetros</button>
+        <button type="button" class="btn btn-info" onclick="crmFollowupCarregarConfig()">Recarregar</button>
+      </div>
     </div>
   </div>
   <div class="admin-grid">
@@ -3877,7 +3932,8 @@ var ETAPAS = [
   {nome:"Fechado",          cor:"#059669", icon:"OK"},
   {nome:"Pos-venda",        cor:"#16A34A", icon:"R"},
   {nome:"Follow-up Futuro", cor:"#64748B", icon:"F"},
-  {nome:"Leads perdidos",    cor:"#991B1B", icon:"LP"}
+  {nome:"Leads perdidos",    cor:"#991B1B", icon:"LP"},
+  {nome:"Pausado",          cor:"#78716C", icon:"P"}
 ];
 
 function fuStatus(d) {
@@ -4162,7 +4218,7 @@ function showTab(id) {
   if (id === "redes")     renderRedesSociais();
   if (id === "contatos")   renderContatos();
   if (id === "agenda")     renderAgenda();
-  if (id === "admin")      { if (!authExigirAdmin()) { showTab("crm"); return; } authRenderUsuarios(); }
+  if (id === "admin")      { if (!authExigirAdmin()) { showTab("crm"); return; } authRenderUsuarios(); crmFollowupCarregarConfig(); }
 }
 
 // ═══════════════════════════════════════════
@@ -4961,6 +5017,7 @@ function migrarEtapasPipeline(){
   if(mudou) salvarDB();
 }
 function renderCRM() {
+  crmFollowupRodarAutomacao(false);
   renderKanban();
   renderFU();
 }
@@ -5194,6 +5251,7 @@ function crmImoveisCompativeis(n){
   var faixa = crmHouseValorFaixa(n);
   var dormsLead = _crmInt(n.dorms);
   var hoje = new Date().toLocaleDateString("pt-BR");
+  var hojeISO = crmISODate(crmHojeLocal());
   return (DB.imoveis||[]).filter(function(im){
     var valorImovel = Number(im.valor||0);
     if(!_crmDispCompat(im)) return false;
@@ -5918,6 +5976,7 @@ function renderKanban() {
         DB.negocios[idx].comPrev     = null;
         DB.negocios[idx].comDataRec  = null;
         DB.negocios[idx].comObs      = "";
+        crmFollowupTouch(DB.negocios[idx], "Negócio fechado via drag-and-drop.");
         salvarDB();
         renderCRM();
         toast("🎉 Negócio fechado via drag! Comissão registrada.");
@@ -6014,6 +6073,7 @@ function renderKanban() {
 
 
 function renderFU() {
+  renderFollowupAuto();
   var _bqFu = _crmBusca();
   var _tipoFiltroFu = _crmBuscaTipoImovel();
   var lista = DB.negocios.filter(function(n){
@@ -6039,6 +6099,163 @@ function renderFU() {
       "<td>"+acoes("neg", n.id)+"</td>";
     tbody.appendChild(tr);
   });
+}
+
+
+// followup-auto-v1
+var CRM_FOLLOWUP_ETAPAS = [
+  {id:"reativacao",nome:"Reativação Automática",cor:"#7C3AED",dias:0,acao:"Enviar Mensagem de Abordagem 1"},
+  {id:"t1",nome:"Tentativa 1",sub:"Contatos Recentes",cor:"#2563EB",diasKey:"t1",acao:"Ligar para o lead - Segunda tentativa"},
+  {id:"t2",nome:"Tentativa 2",sub:"Insistência",cor:"#0891B2",diasKey:"t2",acao:"Mensagem com gatilho de escassez"},
+  {id:"t3",nome:"Tentativa 3",sub:"Gatilho de Escassez",cor:"#B45309",diasKey:"t3",acao:"Enviar oportunidade única"},
+  {id:"t4",nome:"Tentativa 4",sub:"Nutrição 1",cor:"#D97706",diasKey:"t4",acao:"Última tentativa antes de nutrição longa"},
+  {id:"t5",nome:"Tentativa 5",sub:"Nutrição 2",cor:"#64748B",diasKey:"t5",acao:"Follow-up de relacionamento"},
+  {id:"t6",nome:"Tentativa 6",sub:"Nutrição 3",cor:"#475569",diasKey:"t6",acao:"Nutrir com novidade de mercado"},
+  {id:"t7",nome:"Tentativa 7",sub:"Nutrição 4",cor:"#334155",diasKey:"t7",acao:"Contato periódico de reativação"},
+  {id:"t8",nome:"Tentativa 8",sub:"Nutrição 5",cor:"#1E293B",diasKey:"t8",acao:"Contato de oportunidade futura"},
+  {id:"t9",nome:"Tentativa 9",sub:"Nutrição 6",cor:"#111827",diasKey:"t9",acao:"Reativação semestral"},
+  {id:"t10",nome:"Tentativa 10",sub:"Arquivado Definitivo",cor:"#991B1B",diasKey:"t10",acao:"Última chance antes do arquivamento"},
+  {id:"perdido",nome:"Perdido",sub:"Sem interação",cor:"#7F1D1D",dias:0,acao:"Arquivado"}
+];
+var CRM_FOLLOWUP_CFG_KEY = "crm_followup_auto_cfg_v1";
+function crmHojeLocal(){ var d=new Date(); d.setHours(0,0,0,0); return d; }
+function crmISODate(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+function crmAddDiasISO(baseISO,dias){ var d=baseISO?new Date(baseISO+"T00:00:00"):crmHojeLocal(); d.setDate(d.getDate()+Number(dias||0)); return crmISODate(d); }
+function crmDiasEntreISO(a,b){ if(!a||!b) return 0; var da=new Date(a+"T00:00:00"), db=new Date(b+"T00:00:00"); return Math.floor((db-da)/86400000); }
+function crmFollowupDefaultCfg(){ return {inatividade:7,pausa:30,t1:1,t2:3,t3:5,t4:10,t5:15,t6:30,t7:60,t8:90,t9:180,t10:365}; }
+function crmFollowupCfg(){ try{return Object.assign(crmFollowupDefaultCfg(), JSON.parse(localStorage.getItem(CRM_FOLLOWUP_CFG_KEY)||"{}"));}catch(e){return crmFollowupDefaultCfg();} }
+function crmFollowupLog(n,msg){ if(!n) return; n.followLogs=Array.isArray(n.followLogs)?n.followLogs:[]; n.followLogs.unshift({data:new Date().toISOString(),msg:msg}); n.followLogs=n.followLogs.slice(0,60); n.lastActivityAt=n.lastActivityAt||crmISODate(crmHojeLocal()); }
+function crmFollowupTouch(n,msg){ if(!n) return; n.lastActivityAt=crmISODate(crmHojeLocal()); if(msg) crmFollowupLog(n,msg); }
+function crmFollowupEtapaIndex(id){ return CRM_FOLLOWUP_ETAPAS.findIndex(function(e){return e.id===id;}); }
+function crmFollowupEtapa(id){ return CRM_FOLLOWUP_ETAPAS.find(function(e){return e.id===id;})||CRM_FOLLOWUP_ETAPAS[0]; }
+function crmFollowupLabel(n,label){ n.labels=Array.isArray(n.labels)?n.labels:[]; if(n.labels.indexOf(label)<0)n.labels.push(label); }
+function crmFollowupGerarTarefa(n,etapa){
+  if(!n||!etapa) return false;
+  var key="FU_AUTO_"+n.id+"_"+etapa.id;
+  if((DB.tarefas||[]).some(function(t){return t.autoKey===key;})) return false;
+  var data = crmAddDiasISO(crmISODate(crmHojeLocal()), etapa.id==="t1" ? 2 : 0);
+  DB.tarefas=DB.tarefas||[];
+  DB.tarefas.push({
+    id:gerarTarefaId(),autoKey:key,titulo:etapa.acao+" - "+(n.cliente||n.id),tipo:etapa.id==="t1"?"Ligação":"Follow-up",
+    data:data,hora:"09:00",status:"Pendente",prioridade:(etapa.id==="reativacao"||etapa.id==="t1")?"Alta":"Normal",
+    obs:"Tarefa automática do Pipeline de Follow-up. Etapa: "+etapa.nome+".",imovel:n.imovel||"",negocio:n.id,contato:n.cliente||"",criado:new Date().toLocaleDateString("pt-BR")
+  });
+  return true;
+}
+function crmFollowupEntrar(n,motivo,label){
+  if(!n) return false;
+  var hoje=crmISODate(crmHojeLocal());
+  if(!n.followEnteredAt) n.followEnteredAt=hoje;
+  n.followPipeline=true;
+  n.followStage="reativacao";
+  n.followStageAt=hoje;
+  n.followSource=motivo||"manual";
+  n.followReactivated=false;
+  n.followArchived=false;
+  if(label) crmFollowupLabel(n,label);
+  crmFollowupLog(n,"Movido para Follow-up: "+(motivo||"reativação"));
+  crmFollowupGerarTarefa(n, crmFollowupEtapa("reativacao"));
+  return true;
+}
+function crmFollowupReativar(id){
+  var n=(DB.negocios||[]).find(function(x){return x.id===id;});
+  if(!n) return;
+  n.followPipeline=false; n.followReactivated=true; n.followArchived=false;
+  n.etapa="Em atendimento"; n.fechado=false; crmFollowupTouch(n,"Lead reativado e devolvido ao pipeline principal.");
+  salvarDB(); renderCRM(); renderFU(); toast("✅ Lead reativado no pipeline principal.");
+}
+function crmFollowupMoverManual(id,stage){
+  var n=(DB.negocios||[]).find(function(x){return x.id===id;});
+  if(!n) return;
+  n.followPipeline=true; n.followStage=stage; n.followStageAt=crmISODate(crmHojeLocal());
+  crmFollowupLog(n,"Movido manualmente no Follow-up para "+crmFollowupEtapa(stage).nome+".");
+  crmFollowupGerarTarefa(n, crmFollowupEtapa(stage));
+  salvarDB(); renderFU(); toast("✅ Follow-up atualizado.");
+}
+function crmFollowupArquivar(n){
+  n.followArchived=true; n.followPipeline=false; n.etapa="Leads perdidos"; n.fechado=false;
+  crmFollowupLog(n,"Arquivado definitivo após fluxo de reativação.");
+}
+function crmFollowupRodarAutomacao(manual){
+  var cfg=crmFollowupCfg(), hoje=crmISODate(crmHojeLocal()), mudou=false, tarefas=0;
+  (DB.negocios||[]).forEach(function(n){
+    n.lastActivityAt=n.lastActivityAt||n.alteradoEm||n.dataISO||crmDataFechamentoNegocio(n)||crmHojeLocal&&crmISODate(crmHojeLocal())||hoje;
+    var etapa=(n.etapa||"");
+    var abertas=["Em atendimento","Qualificacao","Proposta Enviada","Proposta"].indexOf(etapa)>=0;
+    if(abertas && !n.fechado && !n.followPipeline && crmDiasEntreISO(n.lastActivityAt, hoje)>=Number(cfg.inatividade||7)){
+      if(crmFollowupEntrar(n,"Movido para Follow-up por inatividade de "+cfg.inatividade+" dias","Inativo - Ex-Atendimento")) mudou=true;
+    }
+    if((etapa==="Leads perdidos"||etapa==="Pausado") && !n.followPipeline && !n.followArchived){
+      var motivo=String(n.motivoPerda||n.motivoPausa||n.motivo||"");
+      if(/sem tempo|adiou|preço|preco|orçamento|orcamento alto/i.test(motivo)){
+        n.followAgendadoPara=n.followAgendadoPara||crmAddDiasISO(n.lastActivityAt||hoje, cfg.pausa||30);
+        crmFollowupLabel(n,"Reativação - Pausado");
+        crmFollowupLog(n,"Reativação agendada por motivo: "+motivo+".");
+        if(n.followAgendadoPara<=hoje){ if(crmFollowupEntrar(n,"Reativação programada por pausa/perda: "+motivo,"Reativação - Pausado")) mudou=true; }
+      }
+    }
+    if(n.followPipeline && !n.followArchived){
+      var st=n.followStage||"reativacao", idx=crmFollowupEtapaIndex(st), etapaAtual=crmFollowupEtapa(st);
+      if(crmFollowupGerarTarefa(n, etapaAtual)){ tarefas++; mudou=true; }
+      var prox=CRM_FOLLOWUP_ETAPAS[idx+1];
+      if(prox){
+        var dias=prox.diasKey ? Number(cfg[prox.diasKey]||0) : Number(prox.dias||0);
+        if(crmDiasEntreISO(n.followStageAt||n.followEnteredAt||hoje, hoje)>=dias){
+          n.followStage=prox.id; n.followStageAt=hoje;
+          crmFollowupLog(n,"Avançou automaticamente para "+prox.nome+" por falta de interação.");
+          if(prox.id==="perdido") crmFollowupArquivar(n); else if(crmFollowupGerarTarefa(n, prox)) tarefas++;
+          mudou=true;
+        }
+      }
+    }
+  });
+  if(mudou){ salvarDB(); try{renderAgenda();}catch(e){} try{renderFU();}catch(e){} try{renderKanban();}catch(e){} }
+  if(manual) toast(mudou ? "✅ Automação de follow-up executada"+(tarefas?" com "+tarefas+" tarefa(s).":"." ) : "Tudo em dia no follow-up.");
+}
+function crmFollowupStats(){
+  var todos=(DB.negocios||[]), entraram=todos.filter(function(n){return !!n.followEnteredAt;});
+  var ativos=todos.filter(function(n){return n.followPipeline&&!n.followArchived;});
+  var reat=entraram.filter(function(n){return !!n.followReactivated;});
+  var arquiv=entraram.filter(function(n){return !!n.followArchived;});
+  return {entraram:entraram.length,ativos:ativos.length,reativados:reat.length,arquivados:arquiv.length,taxa:entraram.length?Math.round((reat.length/entraram.length)*100):0};
+}
+function renderRelFollowupAutoResumo(){ return; }
+function renderFollowupAuto(){
+  var board=document.getElementById("followup-auto-board"), kpis=document.getElementById("followup-auto-kpis");
+  if(!board) return;
+  var s=crmFollowupStats();
+  if(kpis) kpis.innerHTML='<div class="follow-auto-kpi"><small>Entraram no Follow-up</small><strong>'+s.entraram+'</strong><span>Total histórico</span></div>'+
+    '<div class="follow-auto-kpi"><small>Ativos em reativação</small><strong>'+s.ativos+'</strong><span>Em alguma tentativa</span></div>'+
+    '<div class="follow-auto-kpi"><small>Reativados</small><strong>'+s.reativados+'</strong><span>Voltaram ao pipeline</span></div>'+
+    '<div class="follow-auto-kpi"><small>Taxa de retorno</small><strong>'+s.taxa+'%</strong><span>Reativados / entraram</span></div>';
+  board.innerHTML="";
+  CRM_FOLLOWUP_ETAPAS.forEach(function(et){
+    var cards=(DB.negocios||[]).filter(function(n){return n.followPipeline&&!n.followArchived&&(n.followStage||"reativacao")===et.id;});
+    var col=document.createElement("div"); col.className="follow-auto-col";
+    col.innerHTML='<div class="follow-auto-head" style="background:'+et.cor+'"><span>'+et.nome+'</span><b>'+cards.length+'</b></div>';
+    if(!cards.length){ col.innerHTML+='<div class="pemp">Nenhum lead</div>'; }
+    cards.sort(_crmOrdenarMaisNovos).forEach(function(n){
+      var logs=(n.followLogs||[]).slice(0,3).map(function(l){return '<div>'+fmtIso(String(l.data).slice(0,10))+' - '+crmEsc(l.msg||"")+'</div>';}).join("");
+      var card=document.createElement("div"); card.className="follow-auto-card";
+      card.innerHTML='<b>'+crmEsc(n.cliente||n.id)+'</b><small>'+crmEsc(n.tel||"")+' · '+crmEsc(n.etapa||"")+'</small>'+
+        '<div class="follow-auto-tags">'+(n.labels||[]).map(function(lb){return '<span class="follow-auto-tag">'+crmEsc(lb)+'</span>';}).join("")+'</div>'+
+        '<div class="follow-auto-actions"><button class="btn btn-primary" onclick="crmFollowupReativar(\''+n.id+'\');event.stopPropagation()">Reativar</button><button class="btn btn-info" onclick="abrirNegocio(\''+n.id+'\');event.stopPropagation()">Ficha</button></div>'+
+        (logs?'<div class="follow-auto-log">'+logs+'</div>':'');
+      card.onclick=function(){ abrirNegocio(n.id); };
+      col.appendChild(card);
+    });
+    board.appendChild(col);
+  });
+}
+function crmFollowupCarregarConfig(){
+  var cfg=crmFollowupCfg();
+  Object.keys(cfg).forEach(function(k){ var el=document.getElementById("fu-cfg-"+k); if(el) el.value=cfg[k]; });
+}
+function crmFollowupSalvarConfig(){
+  var cfg=crmFollowupDefaultCfg();
+  Object.keys(cfg).forEach(function(k){ var el=document.getElementById("fu-cfg-"+k); if(el) cfg[k]=Math.max(0, Number(el.value||cfg[k])); });
+  localStorage.setItem(CRM_FOLLOWUP_CFG_KEY, JSON.stringify(cfg));
+  toast("✅ Parâmetros do follow-up salvos.");
 }
 
 // ═══════════════════════════════════════════
@@ -6309,6 +6526,7 @@ function salvarNegocio() {
   }
   var val  = parseMoeda(req.valor);
   var hoje = new Date().toLocaleDateString("pt-BR");
+  var hojeISO = crmISODate(crmHojeLocal());
 
   // Campos de comissão — só para negócios já fechados
   var negAtual = editNegId ? DB.negocios.find(function(x){ return x.id===editNegId; }) : null;
@@ -6342,14 +6560,16 @@ function salvarNegocio() {
       Object.assign(DB.negocios[idx], {
         cliente:req.cliente, tel:req.tel, imovel:req.imovel,
         valor:val, op:req.op, part:partArr,
-        etapa:etapaSelecionada, fechado:etapaSelecionada==="Fechado" ? true : DB.negocios[idx].fechado, dataFech:etapaSelecionada==="Fechado" ? (g("n-data-fech") || DB.negocios[idx].dataFech || crmDataHojeISO()) : (g("n-data-fech") || DB.negocios[idx].dataFech || null), tipoImovel:g("n-tipo-imovel"), dorms:g("n-dorms"), fu:g("n-fu")||null, entregaChaves:g("n-entrega-chaves")||null, chavesEntregues:!!(document.getElementById("n-chaves-entregues") && document.getElementById("n-chaves-entregues").checked), obs:g("n-obs")
+        etapa:etapaSelecionada, fechado:etapaSelecionada==="Fechado" ? true : DB.negocios[idx].fechado, dataFech:etapaSelecionada==="Fechado" ? (g("n-data-fech") || DB.negocios[idx].dataFech || crmDataHojeISO()) : (g("n-data-fech") || DB.negocios[idx].dataFech || null), tipoImovel:g("n-tipo-imovel"), dorms:g("n-dorms"), fu:g("n-fu")||null, entregaChaves:g("n-entrega-chaves")||null, chavesEntregues:!!(document.getElementById("n-chaves-entregues") && document.getElementById("n-chaves-entregues").checked), obs:g("n-obs"), alteradoEm:hojeISO, lastActivityAt:hojeISO
       }, qualFields, fechandoAgora ? {comParcelas:[],comValPago:0,comHaver:comissao(val, req.op, partArr).val,comStatus:"aberto",comPrev:null,comDataRec:null,comObs:""} : comFields);
+      crmFollowupTouch(DB.negocios[idx], "Ficha do lead atualizada.");
     }
     toast("✅ Negócio atualizado!");
   } else {
     var newId = "N" + String(DB.nSeq).padStart(3,"0");
     DB.nSeq++;
-    DB.negocios.push(Object.assign({id:newId,cliente:req.cliente,tel:req.tel,imovel:req.imovel, valor:val,op:req.op,part:partArr,etapa:etapaSelecionada, tipoImovel:g("n-tipo-imovel"), dorms:g("n-dorms"), fu:g("n-fu")||null, entregaChaves:g("n-entrega-chaves")||null,chavesEntregues:!!(document.getElementById("n-chaves-entregues") && document.getElementById("n-chaves-entregues").checked),obs:g("n-obs"),data:hoje,fechado:etapaSelecionada==="Fechado", dataFech:etapaSelecionada==="Fechado" ? (g("n-data-fech") || crmDataHojeISO()) : (g("n-data-fech") || null), documentos:[],comParcelas:[],comValPago:0,comHaver:etapaSelecionada==="Fechado" ? comissao(val, req.op, partArr).val : 0,comStatus:"aberto",comPrev:null,comObs:""}, qualFields));
+    DB.negocios.push(Object.assign({id:newId,cliente:req.cliente,tel:req.tel,imovel:req.imovel, valor:val,op:req.op,part:partArr,etapa:etapaSelecionada, tipoImovel:g("n-tipo-imovel"), dorms:g("n-dorms"), fu:g("n-fu")||null, entregaChaves:g("n-entrega-chaves")||null,chavesEntregues:!!(document.getElementById("n-chaves-entregues") && document.getElementById("n-chaves-entregues").checked),obs:g("n-obs"),data:hoje,dataISO:hojeISO,alteradoEm:hojeISO,lastActivityAt:hojeISO,fechado:etapaSelecionada==="Fechado", dataFech:etapaSelecionada==="Fechado" ? (g("n-data-fech") || crmDataHojeISO()) : (g("n-data-fech") || null), documentos:[],followLogs:[],labels:[],comParcelas:[],comValPago:0,comHaver:etapaSelecionada==="Fechado" ? comissao(val, req.op, partArr).val : 0,comStatus:"aberto",comPrev:null,comObs:""}, qualFields));
+    crmFollowupLog(DB.negocios[DB.negocios.length-1], "Novo negócio criado no CRM.");
     toast("✅ Negócio "+newId+" cadastrado!");
   }
   salvarDB();
@@ -9170,6 +9390,8 @@ function renderRelatorioProjecoes(base) {
 }
 
 function renderRelatorios() {
+  try { renderRelFollowupAutoResumo(); } catch(e) {}
+
   var base = _relBaseDados();
   var taxaReceb = base.realizado ? Math.round(base.recebido/base.realizado*100) : 0;
   var ticketMedio = base.fechados.length ? base.fechados.reduce(function(s,n){ return s+(Number(n.valor)||0); },0)/base.fechados.length : 0;
