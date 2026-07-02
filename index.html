@@ -3368,6 +3368,7 @@ var _CONTACTS_IDB_NAME = 'imoveis_crm_contatos_db_v1' + _AUTH_DATA_SUFFIX;
 var _CONTACTS_IDB_STORE = 'contatos_store';
 
 function _snapshotDB(incluirContatos) {
+  try { if (typeof crmFollowupNormalizarSistema === "function") crmFollowupNormalizarSistema(); } catch(_eFU) {}
   return {
     imoveis:  DB.imoveis || [],
     negocios: DB.negocios || [],
@@ -3406,6 +3407,7 @@ function _aplicarSnapshotDB(data) {
   DB.capSeq = data.capSeq || 1;
   DB.rsSeq = data.rsSeq || 1;
   _corrigirSequenciaContatos();
+  try { if (typeof crmFollowupNormalizarSistema === "function") crmFollowupNormalizarSistema(); } catch(_eFU) {}
   return true;
 }
 
@@ -3471,6 +3473,7 @@ function _contagemSnapshot(data) {
 }
 
 function _renderTudoAposRecuperarDB() {
+  try { if (typeof crmFollowupNormalizarSistema === "function") crmFollowupNormalizarSistema(); } catch(e) {}
   try { atualizarCod(); } catch(e) {}
   try { renderBase(); } catch(e1) {}
   try { renderStats(); } catch(e2) {}
@@ -3480,6 +3483,8 @@ function _renderTudoAposRecuperarDB() {
   try { renderCaptacoesExternas(); } catch(e6) {}
   try { renderAgenda(); } catch(e7) {}
   try { renderRedesSociais(); } catch(e8) {}
+  try { renderFU(); } catch(e9) {}
+  try { crmFollowupRenderizarAbaAtiva(); } catch(e10) {}
 }
 
 function _recuperarDBIndexedDB(callback) {
@@ -3741,6 +3746,7 @@ function salvarContatosAgora(silencioso) {
 }
 
 function salvarDB() {
+  try { if (typeof crmFollowupNormalizarSistema === "function") crmFollowupNormalizarSistema(); } catch(_eFU) {}
   var contatosOk = false;
   try {
     contatosOk = salvarContatosAgora(true);
@@ -3781,8 +3787,9 @@ function carregarDB() {
     console.warn('carregarDB local backup error:', e);
   }
   var recuperouContatos = _recuperarContatosBackup(true);
+  try { if (typeof crmFollowupNormalizarSistema === "function") crmFollowupNormalizarSistema(); } catch(_eFU) {}
   setTimeout(function(){
-    _recuperarDBIndexedDB(function(ok){ if(ok) console.info("DB principal recuperado do IndexedDB"); });
+    _recuperarDBIndexedDB(function(ok){ if(ok) { console.info("DB principal recuperado do IndexedDB"); try{crmFollowupNormalizarSistema(); renderFU(); crmFollowupRenderizarAbaAtiva();}catch(e){} } });
     _recuperarContatosIndexedDB(function(ok){
       if (ok) {
         console.info("Contatos recuperados do IndexedDB");
@@ -6108,32 +6115,36 @@ function renderKanban() {
 
 
 function renderFU() {
-  try{ crmFollowupGarantirEtapas(); renderFollowupAuto(); }catch(e){ console.error("Erro ao renderizar fases de Follow-up", e); }
-  var _bqFu = _crmBusca();
-  var _tipoFiltroFu = _crmBuscaTipoImovel();
-  var lista = DB.negocios.filter(function(n){
-    if (!n.fu || n.fechado) return false;
-    return _crmPassaFiltrosPipeline(n, _bqFu, _tipoFiltroFu);
-  })
-    .sort(function(a,b){ return a.fu.localeCompare(b.fu); });
-  var tbody = document.getElementById("tbody-fu");
-  var empty = document.getElementById("empty-fu");
-  tbody.innerHTML = "";
-  if (!lista.length) { empty.style.display="block"; return; }
-  empty.style.display = "none";
-  lista.forEach(function(n) {
-    var fu = fuStatus(n.fu);
-    var tr = document.createElement("tr");
-    tr.innerHTML =
-      "<td><b>"+n.cliente+"</b><br><small>"+n.tel+"</small></td>"+
-      "<td style='font-size:.79rem'>"+n.imovel+"</td>"+
-      "<td>"+n.etapa+"</td>"+
-      "<td>"+bOp(n.op)+"</td>"+
-      "<td>"+fmtIso(n.fu)+"</td>"+
-      "<td>"+(fu.cls?'<span class="fubadge '+fu.cls+'">'+fu.txt+'</span>':"–")+"</td>"+
-      "<td>"+acoes("neg", n.id)+"</td>";
-    tbody.appendChild(tr);
-  });
+  try { crmFollowupGarantirEtapas(); renderFollowupAuto(); } catch(e) { console.error("Erro ao renderizar fases de Follow-up", e); }
+  try {
+    var tbody = document.getElementById("tbody-fu");
+    var empty = document.getElementById("empty-fu");
+    if (!tbody || !empty || !window.DB || !Array.isArray(DB.negocios)) return;
+    var _bqFu = (typeof _crmBusca === "function") ? _crmBusca() : "";
+    var _tipoFiltroFu = (typeof _crmBuscaTipoImovel === "function") ? _crmBuscaTipoImovel() : "";
+    var lista = DB.negocios.filter(function(n){
+      if (!n || !n.fu || n.fechado) return false;
+      return (typeof _crmPassaFiltrosPipeline === "function") ? _crmPassaFiltrosPipeline(n, _bqFu, _tipoFiltroFu) : true;
+    }).sort(function(a,b){ return String(a.fu||"").localeCompare(String(b.fu||"")); });
+    tbody.innerHTML = "";
+    if (!lista.length) { empty.style.display="block"; return; }
+    empty.style.display = "none";
+    lista.forEach(function(n) {
+      var fu = (typeof fuStatus === "function") ? fuStatus(n.fu) : {cls:"",txt:""};
+      var tr = document.createElement("tr");
+      tr.innerHTML =
+        "<td><b>"+crmFollowupSafeEsc(n.cliente)+"</b><br><small>"+crmFollowupSafeEsc(n.tel)+"</small></td>"+
+        "<td style='font-size:.79rem'>"+crmFollowupSafeEsc(n.imovel)+"</td>"+
+        "<td>"+crmFollowupSafeEsc(n.etapa)+"</td>"+
+        "<td>"+((typeof bOp === "function") ? bOp(n.op) : crmFollowupSafeEsc(n.op))+"</td>"+
+        "<td>"+((typeof fmtIso === "function") ? fmtIso(n.fu) : crmFollowupSafeEsc(n.fu))+"</td>"+
+        "<td>"+(fu.cls?'<span class="fubadge '+fu.cls+'">'+crmFollowupSafeEsc(fu.txt)+'</span>':"–")+"</td>"+
+        "<td>"+((typeof acoes === "function") ? acoes("neg", n.id) : "")+"</td>";
+      tbody.appendChild(tr);
+    });
+  } catch(e) {
+    console.error("Erro ao renderizar tabela simples de Follow-up", e);
+  }
 }
 
 
@@ -6152,9 +6163,35 @@ function crmFollowupEtapasPadrao(){ return [
   {id:"t10",nome:"Tentativa 10",sub:"Arquivado Definitivo",cor:"#991B1B",diasKey:"t10",acao:"Última chance antes do arquivamento"},
   {id:"perdido",nome:"Perdido",sub:"Sem interação",cor:"#7F1D1D",dias:0,acao:"Arquivado"}
 ]; }
+function crmFollowupSafeEsc(v){
+  return String(v == null ? "" : v).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c];});
+}
 function crmFollowupGarantirEtapas(){
-  if(!Array.isArray(CRM_FOLLOWUP_ETAPAS) || !CRM_FOLLOWUP_ETAPAS.length) CRM_FOLLOWUP_ETAPAS = crmFollowupEtapasPadrao();
+  var padrao = crmFollowupEtapasPadrao();
+  var idsPadrao = padrao.map(function(e){ return e.id; });
+  var ok = Array.isArray(CRM_FOLLOWUP_ETAPAS) &&
+    CRM_FOLLOWUP_ETAPAS.length === padrao.length &&
+    idsPadrao.every(function(id, idx){ return CRM_FOLLOWUP_ETAPAS[idx] && CRM_FOLLOWUP_ETAPAS[idx].id === id && CRM_FOLLOWUP_ETAPAS[idx].nome; });
+  if(!ok) CRM_FOLLOWUP_ETAPAS = padrao;
   return CRM_FOLLOWUP_ETAPAS;
+}
+function crmFollowupNormalizarSistema(){
+  var etapas = crmFollowupGarantirEtapas();
+  var ids = etapas.map(function(e){ return e.id; });
+  if (window.DB) {
+    DB.negocios = Array.isArray(DB.negocios) ? DB.negocios : [];
+    DB.tarefas = Array.isArray(DB.tarefas) ? DB.tarefas : [];
+    DB.negocios.forEach(function(n){
+      if (!n) return;
+      if (n.followPipeline) {
+        if (ids.indexOf(n.followStage) < 0) n.followStage = "reativacao";
+        if (!n.followStageAt) n.followStageAt = n.lastActivityAt || n.dataISO || crmISODate(crmHojeLocal());
+        if (!n.followEnteredAt) n.followEnteredAt = n.followStageAt;
+        n.followArchived = !!n.followArchived;
+      }
+    });
+  }
+  return true;
 }
 var CRM_FOLLOWUP_ETAPAS = crmFollowupEtapasPadrao();
 var CRM_FOLLOWUP_CFG_KEY = "crm_followup_auto_cfg_v1";
@@ -6191,7 +6228,7 @@ function crmFollowupAvancarManual(id){
   var n=(DB.negocios||[]).find(function(x){return x.id===id;});
   if(!n) return;
   var idx=crmFollowupEtapaIndex(n.followStage||"reativacao");
-  var prox=CRM_FOLLOWUP_ETAPAS[idx+1];
+  var prox=crmFollowupGarantirEtapas()[idx+1];
   if(!prox){ toast("Este lead já está na última fase do Follow-up.", true); return; }
   var agora=new Date();
   var hoje=crmISODate(crmHojeLocal());
@@ -6206,7 +6243,8 @@ function crmFollowupAvancarManual(id){
   toast("Lead avançado para "+prox.nome+".");
 }
 function crmFollowupEtapaIndex(id){ return crmFollowupGarantirEtapas().findIndex(function(e){return e.id===id;}); }
-function crmFollowupEtapa(id){ var etapas=crmFollowupGarantirEtapas(); return etapas.find(function(e){return e.id===id;})||etapas[0]; }
+function crmFollowupEtapa(id){ crmFollowupNormalizarSistema();
+  var etapas=crmFollowupGarantirEtapas(); return etapas.find(function(e){return e.id===id;})||etapas[0]; }
 function crmFollowupLabel(n,label){ n.labels=Array.isArray(n.labels)?n.labels:[]; if(n.labels.indexOf(label)<0)n.labels.push(label); }
 function crmFollowupPrioridadeLead(n){
   var aprovado = String((n&&n.aprovado)||"").toLowerCase()==="aprovado";
@@ -6298,7 +6336,7 @@ function crmFollowupRodarAutomacao(manual){
     if(n.followPipeline && !n.followArchived){
       var st=n.followStage||"reativacao", idx=crmFollowupEtapaIndex(st), etapaAtual=crmFollowupEtapa(st);
       if(crmFollowupGerarTarefa(n, etapaAtual)){ tarefas++; mudou=true; }
-      var prox=CRM_FOLLOWUP_ETAPAS[idx+1];
+      var prox=crmFollowupGarantirEtapas()[idx+1];
       if(prox){
         var dias=prox.diasKey ? Number(cfg[prox.diasKey]||0) : Number(prox.dias||0);
         if(crmDiasEntreISO(n.followStageAt||n.followEnteredAt||hoje, hoje)>=dias){
@@ -6322,33 +6360,81 @@ function crmFollowupStats(){
 }
 function renderRelFollowupAutoResumo(){ return; }
 function renderFollowupAuto(){
-  var etapas=crmFollowupGarantirEtapas();
   var board=document.getElementById("followup-auto-board"), kpis=document.getElementById("followup-auto-kpis");
   if(!board) return;
-  var s=crmFollowupStats();
+  crmFollowupNormalizarSistema();
+  var etapas=crmFollowupGarantirEtapas();
+  var negocios=(window.DB && Array.isArray(DB.negocios)) ? DB.negocios : [];
+  var s={entraram:0,ativos:0,reativados:0,taxa:0};
+  try { if (typeof crmFollowupStats === "function") s=crmFollowupStats(); } catch(e) {}
   if(kpis) kpis.innerHTML='<div class="follow-auto-kpi"><small>Entraram no Follow-up</small><strong>'+s.entraram+'</strong><span>Total histórico</span></div>'+
     '<div class="follow-auto-kpi"><small>Ativos em reativação</small><strong>'+s.ativos+'</strong><span>Em alguma tentativa</span></div>'+
     '<div class="follow-auto-kpi"><small>Reativados</small><strong>'+s.reativados+'</strong><span>Voltaram ao pipeline</span></div>'+
     '<div class="follow-auto-kpi"><small>Taxa de retorno</small><strong>'+s.taxa+'%</strong><span>Reativados / entraram</span></div>';
   board.innerHTML="";
   etapas.forEach(function(et){
-    var cards=(DB.negocios||[]).filter(function(n){return n.followPipeline&&!n.followArchived&&(n.followStage||"reativacao")===et.id;});
-    var col=document.createElement("div"); col.className="follow-auto-col";
-    col.innerHTML='<div class="follow-auto-head" style="background:'+et.cor+'"><span>'+et.nome+'</span><b>'+cards.length+'</b></div>';
-    if(!cards.length){ col.innerHTML+='<div class="pemp">Nenhum lead</div>'; }
-    cards.sort(crmFollowupOrdenarPrioridade).forEach(function(n){
-      var logs=(n.followLogs||[]).slice(0,5).map(function(l){return '<div>'+crmFollowupFmtLogData(l.data)+' - '+crmEsc(l.msg||"")+'</div>';}).join("");
-      var card=document.createElement("div"); card.className="follow-auto-card";
-      card.innerHTML='<b>'+crmEsc(n.cliente||n.id)+'</b><small>'+crmEsc(n.tel||"")+' · '+crmEsc(n.etapa||"")+'</small>'+
-        '<div class="follow-auto-tags">'+(n.labels||[]).map(function(lb){return '<span class="follow-auto-tag">'+crmEsc(lb)+'</span>';}).join("")+'</div>'+
-        '<div class="follow-auto-actions"><button class="btn btn-success" onclick="crmFollowupRegistrarContato(\''+n.id+'\');event.stopPropagation()">Novo contato</button><button class="btn btn-primary" onclick="crmFollowupAvancarManual(\''+n.id+'\');event.stopPropagation()">Avançar fase</button><button class="btn btn-info" onclick="abrirNegocio(\''+n.id+'\');event.stopPropagation()">Ficha</button><button class="btn btn-ghost" onclick="crmFollowupReativar(\''+n.id+'\');event.stopPropagation()">Reativar</button></div>'+
-        (logs?'<div class="follow-auto-log">'+logs+'</div>':'');
-      card.onclick=function(){ abrirNegocio(n.id); };
-      col.appendChild(card);
+    var cards=[];
+    try {
+      cards=negocios.filter(function(n){return n && n.followPipeline && !n.followArchived && (n.followStage||"reativacao")===et.id;});
+      cards.sort(function(a,b){
+        try { return crmFollowupOrdenarPrioridade(a,b); } catch(e) { return String(b.followStageAt||b.dataISO||"").localeCompare(String(a.followStageAt||a.dataISO||"")); }
+      });
+    } catch(e) { cards=[]; }
+    var col=document.createElement("div");
+    col.className="follow-auto-col";
+    var head=document.createElement("div");
+    head.className="follow-auto-head";
+    head.style.background=et.cor || "#434247";
+    head.innerHTML='<span>'+crmFollowupSafeEsc(et.nome)+'</span><b>'+cards.length+'</b>';
+    col.appendChild(head);
+    if(!cards.length){
+      var emp=document.createElement("div");
+      emp.className="pemp";
+      emp.textContent="Nenhum lead";
+      col.appendChild(emp);
+    }
+    cards.forEach(function(n){
+      try {
+        var logs=(Array.isArray(n.followLogs)?n.followLogs:[]).slice(0,5).map(function(l){
+          var data=(typeof crmFollowupFmtLogData==="function") ? crmFollowupFmtLogData(l.data) : String(l.data||"").slice(0,16);
+          return '<div>'+crmFollowupSafeEsc(data)+' - '+crmFollowupSafeEsc(l.msg||"")+'</div>';
+        }).join("");
+        var card=document.createElement("div");
+        card.className="follow-auto-card";
+        card.innerHTML='<b>'+crmFollowupSafeEsc(n.cliente||n.id)+'</b><small>'+crmFollowupSafeEsc(n.tel||"")+' · '+crmFollowupSafeEsc(n.etapa||"")+'</small>'+
+          '<div class="follow-auto-tags">'+(Array.isArray(n.labels)?n.labels:[]).map(function(lb){return '<span class="follow-auto-tag">'+crmFollowupSafeEsc(lb)+'</span>';}).join("")+'</div>'+
+          '<div class="follow-auto-actions"><button class="btn btn-success" onclick="crmFollowupRegistrarContato(\''+crmFollowupSafeEsc(n.id)+'\');event.stopPropagation()">Novo contato</button><button class="btn btn-primary" onclick="crmFollowupAvancarManual(\''+crmFollowupSafeEsc(n.id)+'\');event.stopPropagation()">Avançar fase</button><button class="btn btn-info" onclick="abrirNegocio(\''+crmFollowupSafeEsc(n.id)+'\');event.stopPropagation()">Ficha</button><button class="btn btn-ghost" onclick="crmFollowupReativar(\''+crmFollowupSafeEsc(n.id)+'\');event.stopPropagation()">Reativar</button></div>'+
+          (logs?'<div class="follow-auto-log">'+logs+'</div>':'');
+        card.onclick=function(){ if(typeof abrirNegocio==="function") abrirNegocio(n.id); };
+        col.appendChild(card);
+      } catch(e) {
+        console.warn("Card de Follow-up ignorado por erro de dados", e);
+      }
     });
     board.appendChild(col);
   });
 }
+function crmFollowupRenderizarAbaAtiva(){
+  try {
+    crmFollowupNormalizarSistema();
+    var board=document.getElementById("followup-auto-board");
+    if(!board) return;
+    var panel=document.getElementById("tab-followup");
+    if(!panel || panel.classList.contains("active") || !board.children.length) renderFollowupAuto();
+  } catch(e) {
+    console.error("Erro ao garantir Pipeline de Follow-up", e);
+  }
+}
+try {
+  document.addEventListener("click", function(ev){
+    var alvo=ev.target && ev.target.closest ? ev.target.closest(".tab") : null;
+    if(alvo && /Follow-up/i.test(alvo.textContent||"")) setTimeout(crmFollowupRenderizarAbaAtiva, 60);
+  });
+  document.addEventListener("DOMContentLoaded", function(){ setTimeout(crmFollowupRenderizarAbaAtiva, 150); });
+  window.addEventListener("load", function(){ setTimeout(crmFollowupRenderizarAbaAtiva, 250); });
+  window.addEventListener("pageshow", function(){ setTimeout(crmFollowupRenderizarAbaAtiva, 250); });
+  document.addEventListener("visibilitychange", function(){ if(!document.hidden) setTimeout(crmFollowupRenderizarAbaAtiva, 150); });
+} catch(e) {}
 function crmFollowupCarregarConfig(){
   var cfg=crmFollowupCfg();
   Object.keys(cfg).forEach(function(k){ var el=document.getElementById("fu-cfg-"+k); if(el) el.value=cfg[k]; });
@@ -8421,23 +8507,14 @@ function _processarArquivoRestore(txt) {
 
 function confirmarRestore() {
   if(!_dadosRestore){return;}
-  DB.imoveis  = _dadosRestore.imoveis  || [];
-  DB.negocios = _dadosRestore.negocios || [];
-  DB.contatos = _dadosRestore.contatos || [];
-  DB.tarefas  = _dadosRestore.tarefas  || [];
-  DB.previsoes = _dadosRestore.previsoes || [];
-  DB.captacoes = _dadosRestore.captacoes || [];
-  DB.iSeq     = _dadosRestore.iSeq     || 1;
-  DB.nSeq     = _dadosRestore.nSeq     || 1;
-  DB.cSeq     = _dadosRestore.cSeq     || 1;
-  DB.tSeq     = _dadosRestore.tSeq     || 1;
-  DB.pSeq     = _dadosRestore.pSeq     || 1;
-  DB.capSeq   = _dadosRestore.capSeq   || 1;
+  if(!_aplicarSnapshotDB(_dadosRestore)){ toast("Não foi possível aplicar o backup.", true); return; }
   _alertasDisparados = {};
+  try { crmFollowupNormalizarSistema(); } catch(e) {}
   salvarDB();
   fecharRestore();
   renderBase(); renderStats(); filtrar();
-  renderCRM(); renderRelatorios(); renderContatos();  renderAgenda(); 
+  renderCRM(); renderRelatorios(); renderContatos(); renderAgenda();
+  try { renderFU(); crmFollowupRenderizarAbaAtiva(); } catch(e) {}
   toast("📂 Restauração concluída!");
 }
 
