@@ -1866,7 +1866,7 @@ body.auth-locked #auth-screen{display:flex}
     <div class="card-header">⚙️ Parâmetros do Follow-up Automático</div>
     <div class="card-body">
       <div class="follow-settings-grid">
-        <div><label>Inatividade para reativação (dias)</label><input id="fu-cfg-inatividade" type="number" min="1" value="7"></div>
+        <div><label>Inatividade para reativação (dias)</label><input id="fu-cfg-inatividade" type="number" min="1" value="1"></div>
         <div><label>Pausa/perdido para reativar (dias)</label><input id="fu-cfg-pausa" type="number" min="1" value="30"></div>
         <div><label>Tentativa 1 (dias)</label><input id="fu-cfg-t1" type="number" min="0" value="1"></div>
         <div><label>Tentativa 2 (dias)</label><input id="fu-cfg-t2" type="number" min="0" value="3"></div>
@@ -6157,23 +6157,81 @@ function crmHojeLocal(){ var d=new Date(); d.setHours(0,0,0,0); return d; }
 function crmISODate(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
 function crmAddDiasISO(baseISO,dias){ var d=baseISO?new Date(baseISO+"T00:00:00"):crmHojeLocal(); d.setDate(d.getDate()+Number(dias||0)); return crmISODate(d); }
 function crmDiasEntreISO(a,b){ if(!a||!b) return 0; var da=new Date(a+"T00:00:00"), db=new Date(b+"T00:00:00"); return Math.floor((db-da)/86400000); }
-function crmFollowupDefaultCfg(){ return {inatividade:7,pausa:30,t1:1,t2:3,t3:5,t4:10,t5:15,t6:30,t7:60,t8:90,t9:180,t10:365}; }
-function crmFollowupCfg(){ try{return Object.assign(crmFollowupDefaultCfg(), JSON.parse(localStorage.getItem(CRM_FOLLOWUP_CFG_KEY)||"{}"));}catch(e){return crmFollowupDefaultCfg();} }
+function crmFollowupDefaultCfg(){ return {inatividade:1,pausa:30,t1:1,t2:3,t3:5,t4:10,t5:15,t6:30,t7:60,t8:90,t9:180,t10:365}; }
+function crmFollowupCfg(){ var c; try{c=Object.assign(crmFollowupDefaultCfg(), JSON.parse(localStorage.getItem(CRM_FOLLOWUP_CFG_KEY)||"{}"));}catch(e){c=crmFollowupDefaultCfg();} c.inatividade=1; return c; }
 function crmFollowupLog(n,msg){ if(!n) return; n.followLogs=Array.isArray(n.followLogs)?n.followLogs:[]; n.followLogs.unshift({data:new Date().toISOString(),msg:msg}); n.followLogs=n.followLogs.slice(0,60); n.lastActivityAt=n.lastActivityAt||crmISODate(crmHojeLocal()); }
 function crmFollowupTouch(n,msg){ if(!n) return; n.lastActivityAt=crmISODate(crmHojeLocal()); if(msg) crmFollowupLog(n,msg); }
+function crmFollowupFmtLogData(iso){
+  var d=new Date(iso||Date.now());
+  if(isNaN(d.getTime())) return fmtIso(String(iso||"").slice(0,10));
+  return d.toLocaleDateString("pt-BR")+" "+d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
+}
+function crmFollowupRegistrarContato(id){
+  var n=(DB.negocios||[]).find(function(x){return x.id===id;});
+  if(!n) return;
+  var obs=prompt("Descreva rapidamente o contato feito com o lead:", "Novo contato realizado");
+  if(obs===null) return;
+  var agora=new Date();
+  var hoje=crmISODate(crmHojeLocal());
+  n.lastActivityAt=hoje;
+  n.followStageAt=hoje;
+  n.followLastContactAt=agora.toISOString();
+  crmFollowupLog(n,"Contato registrado em "+crmFollowupFmtLogData(agora.toISOString())+": "+(obs||"Novo contato realizado"));
+  salvarDB();
+  try{renderFollowupAuto();}catch(e){}
+  try{renderAgenda();}catch(e){}
+  toast("Contato registrado no Follow-up.");
+}
+function crmFollowupAvancarManual(id){
+  var n=(DB.negocios||[]).find(function(x){return x.id===id;});
+  if(!n) return;
+  var idx=crmFollowupEtapaIndex(n.followStage||"reativacao");
+  var prox=CRM_FOLLOWUP_ETAPAS[idx+1];
+  if(!prox){ toast("Este lead já está na última fase do Follow-up.", true); return; }
+  var agora=new Date();
+  var hoje=crmISODate(crmHojeLocal());
+  n.followStage=prox.id;
+  n.followStageAt=hoje;
+  n.followLastAdvanceAt=agora.toISOString();
+  crmFollowupLog(n,"Avançado manualmente para "+prox.nome+" em "+crmFollowupFmtLogData(agora.toISOString())+".");
+  if(prox.id!=="perdido") crmFollowupGerarTarefa(n, prox);
+  salvarDB();
+  try{renderFollowupAuto();}catch(e){}
+  try{renderAgenda();}catch(e){}
+  toast("Lead avançado para "+prox.nome+".");
+}
 function crmFollowupEtapaIndex(id){ return CRM_FOLLOWUP_ETAPAS.findIndex(function(e){return e.id===id;}); }
 function crmFollowupEtapa(id){ return CRM_FOLLOWUP_ETAPAS.find(function(e){return e.id===id;})||CRM_FOLLOWUP_ETAPAS[0]; }
 function crmFollowupLabel(n,label){ n.labels=Array.isArray(n.labels)?n.labels:[]; if(n.labels.indexOf(label)<0)n.labels.push(label); }
+function crmFollowupPrioridadeLead(n){
+  var aprovado = String((n&&n.aprovado)||"").toLowerCase()==="aprovado";
+  var venda = String((n&&n.op)||"").toLowerCase()==="venda";
+  var score = (aprovado?2:0) + (venda?1:0);
+  return {
+    score: score,
+    alta: score>0,
+    label: aprovado&&venda ? "Prioridade: aprovado + venda" : (aprovado ? "Prioridade: aprovado" : (venda ? "Prioridade: venda" : ""))
+  };
+}
+function crmFollowupOrdenarPrioridade(a,b){
+  var pa = crmFollowupPrioridadeLead(a).score;
+  var pb = crmFollowupPrioridadeLead(b).score;
+  if(pb!==pa) return pb-pa;
+  return _crmOrdenarMaisNovos(a,b);
+}
 function crmFollowupGerarTarefa(n,etapa){
   if(!n||!etapa) return false;
   var key="FU_AUTO_"+n.id+"_"+etapa.id;
   if((DB.tarefas||[]).some(function(t){return t.autoKey===key;})) return false;
   var data = crmAddDiasISO(crmISODate(crmHojeLocal()), etapa.id==="t1" ? 2 : 0);
+  var priLead = crmFollowupPrioridadeLead(n);
+  if(priLead.label) crmFollowupLabel(n, priLead.label);
+  var prioridade = (priLead.alta || etapa.id==="reativacao" || etapa.id==="t1") ? "Alta" : "Normal";
   DB.tarefas=DB.tarefas||[];
   DB.tarefas.push({
-    id:gerarTarefaId(),autoKey:key,titulo:etapa.acao+" - "+(n.cliente||n.id),tipo:etapa.id==="t1"?"Ligação":"Follow-up",
-    data:data,hora:"09:00",status:"Pendente",prioridade:(etapa.id==="reativacao"||etapa.id==="t1")?"Alta":"Normal",
-    obs:"Tarefa automática do Pipeline de Follow-up. Etapa: "+etapa.nome+".",imovel:n.imovel||"",negocio:n.id,contato:n.cliente||"",criado:new Date().toLocaleDateString("pt-BR")
+    id:gerarTarefaId(),autoKey:key,titulo:(priLead.alta?"[PRIORIDADE] ":"")+etapa.acao+" - "+(n.cliente||n.id),tipo:etapa.id==="t1"?"Ligação":"Follow-up",
+    data:data,hora:"09:00",status:"Pendente",prioridade:prioridade,
+    obs:"Tarefa automática do Pipeline de Follow-up. Etapa: "+etapa.nome+"."+(priLead.label?" "+priLead.label+".":""),imovel:n.imovel||"",negocio:n.id,contato:n.cliente||"",criado:new Date().toLocaleDateString("pt-BR")
   });
   return true;
 }
@@ -6188,6 +6246,8 @@ function crmFollowupEntrar(n,motivo,label){
   n.followReactivated=false;
   n.followArchived=false;
   if(label) crmFollowupLabel(n,label);
+  var priLeadEntrada = crmFollowupPrioridadeLead(n);
+  if(priLeadEntrada.label) crmFollowupLabel(n, priLeadEntrada.label);
   crmFollowupLog(n,"Movido para Follow-up: "+(motivo||"reativação"));
   crmFollowupGerarTarefa(n, crmFollowupEtapa("reativacao"));
   return true;
@@ -6217,7 +6277,7 @@ function crmFollowupRodarAutomacao(manual){
     n.lastActivityAt=n.lastActivityAt||n.alteradoEm||n.dataISO||crmDataFechamentoNegocio(n)||crmHojeLocal&&crmISODate(crmHojeLocal())||hoje;
     var etapa=(n.etapa||"");
     var abertas=["Lead Novo","Em atendimento","Qualificacao","Visita","Negociacao","Negociação","Proposta Enviada","Proposta"].indexOf(etapa)>=0;
-    if(abertas && !n.fechado && !n.followPipeline && crmDiasEntreISO(n.lastActivityAt, hoje)>=Number(cfg.inatividade||7)){
+    if(abertas && !n.fechado && !n.followPipeline && crmDiasEntreISO(n.lastActivityAt, hoje)>=Number(cfg.inatividade||1)){
       if(crmFollowupEntrar(n,"Movido para Follow-up por inatividade de "+cfg.inatividade+" dias","Inativo - Ex-Atendimento")) mudou=true;
     }
     if((etapa==="Leads perdidos"||etapa==="Pausado") && !n.followPipeline && !n.followArchived){
@@ -6269,12 +6329,12 @@ function renderFollowupAuto(){
     var col=document.createElement("div"); col.className="follow-auto-col";
     col.innerHTML='<div class="follow-auto-head" style="background:'+et.cor+'"><span>'+et.nome+'</span><b>'+cards.length+'</b></div>';
     if(!cards.length){ col.innerHTML+='<div class="pemp">Nenhum lead</div>'; }
-    cards.sort(_crmOrdenarMaisNovos).forEach(function(n){
-      var logs=(n.followLogs||[]).slice(0,3).map(function(l){return '<div>'+fmtIso(String(l.data).slice(0,10))+' - '+crmEsc(l.msg||"")+'</div>';}).join("");
+    cards.sort(crmFollowupOrdenarPrioridade).forEach(function(n){
+      var logs=(n.followLogs||[]).slice(0,5).map(function(l){return '<div>'+crmFollowupFmtLogData(l.data)+' - '+crmEsc(l.msg||"")+'</div>';}).join("");
       var card=document.createElement("div"); card.className="follow-auto-card";
       card.innerHTML='<b>'+crmEsc(n.cliente||n.id)+'</b><small>'+crmEsc(n.tel||"")+' · '+crmEsc(n.etapa||"")+'</small>'+
         '<div class="follow-auto-tags">'+(n.labels||[]).map(function(lb){return '<span class="follow-auto-tag">'+crmEsc(lb)+'</span>';}).join("")+'</div>'+
-        '<div class="follow-auto-actions"><button class="btn btn-primary" onclick="crmFollowupReativar(\''+n.id+'\');event.stopPropagation()">Reativar</button><button class="btn btn-info" onclick="abrirNegocio(\''+n.id+'\');event.stopPropagation()">Ficha</button></div>'+
+        '<div class="follow-auto-actions"><button class="btn btn-success" onclick="crmFollowupRegistrarContato(\''+n.id+'\');event.stopPropagation()">Novo contato</button><button class="btn btn-primary" onclick="crmFollowupAvancarManual(\''+n.id+'\');event.stopPropagation()">Avançar fase</button><button class="btn btn-info" onclick="abrirNegocio(\''+n.id+'\');event.stopPropagation()">Ficha</button><button class="btn btn-ghost" onclick="crmFollowupReativar(\''+n.id+'\');event.stopPropagation()">Reativar</button></div>'+
         (logs?'<div class="follow-auto-log">'+logs+'</div>':'');
       card.onclick=function(){ abrirNegocio(n.id); };
       col.appendChild(card);
