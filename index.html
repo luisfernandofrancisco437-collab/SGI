@@ -6108,7 +6108,7 @@ function renderKanban() {
 
 
 function renderFU() {
-  renderFollowupAuto();
+  try{ crmFollowupGarantirEtapas(); renderFollowupAuto(); }catch(e){ console.error("Erro ao renderizar fases de Follow-up", e); }
   var _bqFu = _crmBusca();
   var _tipoFiltroFu = _crmBuscaTipoImovel();
   var lista = DB.negocios.filter(function(n){
@@ -6138,6 +6138,24 @@ function renderFU() {
 
 
 // followup-auto-v1
+function crmFollowupEtapasPadrao(){ return [
+  {id:"reativacao",nome:"Reativação Automática",cor:"#7C3AED",dias:0,acao:"Enviar Mensagem de Abordagem 1"},
+  {id:"t1",nome:"Tentativa 1",sub:"Contatos Recentes",cor:"#2563EB",diasKey:"t1",acao:"Ligar para o lead - Segunda tentativa"},
+  {id:"t2",nome:"Tentativa 2",sub:"Insistência",cor:"#0891B2",diasKey:"t2",acao:"Mensagem com gatilho de escassez"},
+  {id:"t3",nome:"Tentativa 3",sub:"Gatilho de Escassez",cor:"#B45309",diasKey:"t3",acao:"Enviar oportunidade única"},
+  {id:"t4",nome:"Tentativa 4",sub:"Nutrição 1",cor:"#D97706",diasKey:"t4",acao:"Última tentativa antes de nutrição longa"},
+  {id:"t5",nome:"Tentativa 5",sub:"Nutrição 2",cor:"#64748B",diasKey:"t5",acao:"Follow-up de relacionamento"},
+  {id:"t6",nome:"Tentativa 6",sub:"Nutrição 3",cor:"#475569",diasKey:"t6",acao:"Nutrir com novidade de mercado"},
+  {id:"t7",nome:"Tentativa 7",sub:"Nutrição 4",cor:"#334155",diasKey:"t7",acao:"Contato periódico de reativação"},
+  {id:"t8",nome:"Tentativa 8",sub:"Nutrição 5",cor:"#1E293B",diasKey:"t8",acao:"Contato de oportunidade futura"},
+  {id:"t9",nome:"Tentativa 9",sub:"Nutrição 6",cor:"#111827",diasKey:"t9",acao:"Reativação semestral"},
+  {id:"t10",nome:"Tentativa 10",sub:"Arquivado Definitivo",cor:"#991B1B",diasKey:"t10",acao:"Última chance antes do arquivamento"},
+  {id:"perdido",nome:"Perdido",sub:"Sem interação",cor:"#7F1D1D",dias:0,acao:"Arquivado"}
+]; }
+function crmFollowupGarantirEtapas(){
+  if(!Array.isArray(CRM_FOLLOWUP_ETAPAS) || !CRM_FOLLOWUP_ETAPAS.length) CRM_FOLLOWUP_ETAPAS = crmFollowupEtapasPadrao();
+  return CRM_FOLLOWUP_ETAPAS;
+}
 var CRM_FOLLOWUP_ETAPAS = [
   {id:"reativacao",nome:"Reativação Automática",cor:"#7C3AED",dias:0,acao:"Enviar Mensagem de Abordagem 1"},
   {id:"t1",nome:"Tentativa 1",sub:"Contatos Recentes",cor:"#2563EB",diasKey:"t1",acao:"Ligar para o lead - Segunda tentativa"},
@@ -6200,8 +6218,8 @@ function crmFollowupAvancarManual(id){
   try{renderAgenda();}catch(e){}
   toast("Lead avançado para "+prox.nome+".");
 }
-function crmFollowupEtapaIndex(id){ return CRM_FOLLOWUP_ETAPAS.findIndex(function(e){return e.id===id;}); }
-function crmFollowupEtapa(id){ return CRM_FOLLOWUP_ETAPAS.find(function(e){return e.id===id;})||CRM_FOLLOWUP_ETAPAS[0]; }
+function crmFollowupEtapaIndex(id){ return crmFollowupGarantirEtapas().findIndex(function(e){return e.id===id;}); }
+function crmFollowupEtapa(id){ var etapas=crmFollowupGarantirEtapas(); return etapas.find(function(e){return e.id===id;})||etapas[0]; }
 function crmFollowupLabel(n,label){ n.labels=Array.isArray(n.labels)?n.labels:[]; if(n.labels.indexOf(label)<0)n.labels.push(label); }
 function crmFollowupPrioridadeLead(n){
   var aprovado = String((n&&n.aprovado)||"").toLowerCase()==="aprovado";
@@ -6272,6 +6290,7 @@ function crmFollowupArquivar(n){
   crmFollowupLog(n,"Arquivado definitivo após fluxo de reativação.");
 }
 function crmFollowupRodarAutomacao(manual){
+  crmFollowupGarantirEtapas();
   var cfg=crmFollowupCfg(), hoje=crmISODate(crmHojeLocal()), mudou=false, tarefas=0;
   (DB.negocios||[]).forEach(function(n){
     n.lastActivityAt=n.lastActivityAt||n.alteradoEm||n.dataISO||crmDataFechamentoNegocio(n)||crmHojeLocal&&crmISODate(crmHojeLocal())||hoje;
@@ -6316,6 +6335,7 @@ function crmFollowupStats(){
 }
 function renderRelFollowupAutoResumo(){ return; }
 function renderFollowupAuto(){
+  var etapas=crmFollowupGarantirEtapas();
   var board=document.getElementById("followup-auto-board"), kpis=document.getElementById("followup-auto-kpis");
   if(!board) return;
   var s=crmFollowupStats();
@@ -6324,7 +6344,7 @@ function renderFollowupAuto(){
     '<div class="follow-auto-kpi"><small>Reativados</small><strong>'+s.reativados+'</strong><span>Voltaram ao pipeline</span></div>'+
     '<div class="follow-auto-kpi"><small>Taxa de retorno</small><strong>'+s.taxa+'%</strong><span>Reativados / entraram</span></div>';
   board.innerHTML="";
-  CRM_FOLLOWUP_ETAPAS.forEach(function(et){
+  etapas.forEach(function(et){
     var cards=(DB.negocios||[]).filter(function(n){return n.followPipeline&&!n.followArchived&&(n.followStage||"reativacao")===et.id;});
     var col=document.createElement("div"); col.className="follow-auto-col";
     col.innerHTML='<div class="follow-auto-head" style="background:'+et.cor+'"><span>'+et.nome+'</span><b>'+cards.length+'</b></div>';
@@ -10362,6 +10382,19 @@ setTimeout(_verificarAlertas,2000);
 setInterval(_verificarAlertas,60000);
 _pedirPermissaoNotif();
 authAplicarUI();
+
+// Exposição explícita das funções chamadas por handlers inline.
+// Mantém login e controles de Follow-up funcionando em publicação estática.
+try {
+  if (typeof authEntrar === "function") window.authEntrar = authEntrar;
+  if (typeof authSair === "function") window.authSair = authSair;
+  if (typeof authRecuperarAdmin === "function") window.authRecuperarAdmin = authRecuperarAdmin;
+  if (typeof crmFollowupRegistrarContato === "function") window.crmFollowupRegistrarContato = crmFollowupRegistrarContato;
+  if (typeof crmFollowupAvancarManual === "function") window.crmFollowupAvancarManual = crmFollowupAvancarManual;
+  if (typeof crmFollowupRodarAutomacao === "function") window.crmFollowupRodarAutomacao = crmFollowupRodarAutomacao;
+  if (typeof crmFollowupReativar === "function") window.crmFollowupReativar = crmFollowupReativar;
+  if (typeof renderFollowupAuto === "function") window.renderFollowupAuto = renderFollowupAuto;
+} catch(e) {}
 </script>
 
 <div class="modal-bg" id="modal-restore-bg">
