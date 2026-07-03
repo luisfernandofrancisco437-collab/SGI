@@ -1890,6 +1890,18 @@ body.auth-locked #auth-screen{display:flex}
     </div>
   </div>
   <div id="followup-auto-kpis" class="follow-auto-kpis"></div>
+  <div class="card" style="margin:0 0 14px">
+    <div class="card-body" style="padding:12px 14px">
+      <div style="display:grid;grid-template-columns:minmax(240px,1fr) auto;gap:10px;align-items:end">
+        <div>
+          <label style="font-size:.78rem;font-weight:800;color:#434247">Localizar card no Follow-up</label>
+          <input id="followup-auto-search" type="text" placeholder="Buscar por nome, telefone ou código do imóvel..." oninput="renderFollowupAuto()" style="margin-top:5px">
+        </div>
+        <button type="button" class="btn btn-info" onclick="crmFollowupLimparBusca()">Limpar</button>
+      </div>
+      <div id="followup-auto-search-info" style="font-size:.75rem;color:#64748B;margin-top:7px"></div>
+    </div>
+  </div>
   <div id="followup-auto-board" class="follow-auto-board"></div>
   <div id="followup-urgente-host" style="margin-top:18px"></div>
   <div id="followup-completo-host"></div>
@@ -7377,6 +7389,46 @@ function crmFollowupStats(){
   return {entraram:entraram.length,ativos:ativos.length,reativados:reat.length,arquivados:arquiv.length,taxa:entraram.length?Math.round((reat.length/entraram.length)*100):0};
 }
 function renderRelFollowupAutoResumo(){ return; }
+function crmFollowupBuscaTermo(){
+  var el=document.getElementById("followup-auto-search");
+  return el ? String(el.value || "").trim() : "";
+}
+function crmFollowupBuscaTexto(v){
+  var s=String(v || "").toLowerCase();
+  try { s=s.normalize("NFD").replace(/[\u0300-\u036f]/g,""); } catch(e) {}
+  return s.replace(/[^a-z0-9]+/g,"");
+}
+function crmFollowupBuscaDigitos(v){
+  return String(v || "").replace(/\D/g,"");
+}
+function crmFollowupMatchBusca(n, termo){
+  termo=String(termo || "").trim();
+  if(!termo) return true;
+  var alvo=[
+    n && n.cliente,
+    n && n.tel,
+    n && n.imovel,
+    n && n.id,
+    n && n.codigoImovel,
+    n && n.codigo,
+    n && n.tipoImovel,
+    n && n.email
+  ].join(" ");
+  var txt=crmFollowupBuscaTexto(alvo);
+  var qTxt=crmFollowupBuscaTexto(termo);
+  if(qTxt && txt.indexOf(qTxt)>=0) return true;
+  var qDig=crmFollowupBuscaDigitos(termo);
+  if(qDig){
+    var dig=crmFollowupBuscaDigitos([n && n.tel, n && n.imovel, n && n.id, n && n.codigoImovel, n && n.codigo].join(" "));
+    if(dig.indexOf(qDig)>=0) return true;
+  }
+  return false;
+}
+function crmFollowupLimparBusca(){
+  var el=document.getElementById("followup-auto-search");
+  if(el) el.value="";
+  renderFollowupAuto();
+}
 function renderFollowupAuto(){
   var board=document.getElementById("followup-auto-board"), kpis=document.getElementById("followup-auto-kpis");
   if(!board) return;
@@ -7389,11 +7441,15 @@ function renderFollowupAuto(){
     '<div class="follow-auto-kpi"><small>Ativos em reativação</small><strong>'+s.ativos+'</strong><span>Em alguma tentativa</span></div>'+
     '<div class="follow-auto-kpi"><small>Reativados</small><strong>'+s.reativados+'</strong><span>Voltaram ao pipeline</span></div>'+
     '<div class="follow-auto-kpi"><small>Taxa de retorno</small><strong>'+s.taxa+'%</strong><span>Reativados / entraram</span></div>';
+  var busca=crmFollowupBuscaTermo();
+  var totalAtivos=negocios.filter(function(n){return n && n.followPipeline && !n.followArchived;}).length;
+  var totalEncontrados=0;
   board.innerHTML="";
   etapas.forEach(function(et){
     var cards=[];
     try {
-      cards=negocios.filter(function(n){return n && n.followPipeline && !n.followArchived && (n.followStage||"reativacao")===et.id;});
+      cards=negocios.filter(function(n){return n && n.followPipeline && !n.followArchived && (n.followStage||"reativacao")===et.id && crmFollowupMatchBusca(n,busca);});
+      totalEncontrados += cards.length;
       cards.sort(function(a,b){
         try { return crmFollowupOrdenarPrioridade(a,b); } catch(e) { return String(b.followStageAt||b.dataISO||"").localeCompare(String(a.followStageAt||a.dataISO||"")); }
       });
@@ -7408,7 +7464,7 @@ function renderFollowupAuto(){
     if(!cards.length){
       var emp=document.createElement("div");
       emp.className="pemp";
-      emp.textContent="Nenhum lead";
+      emp.textContent=busca ? "Nenhum resultado" : "Nenhum lead";
       col.appendChild(emp);
     }
     cards.forEach(function(n){
@@ -7433,6 +7489,8 @@ function renderFollowupAuto(){
     });
     board.appendChild(col);
   });
+  var info=document.getElementById("followup-auto-search-info");
+  if(info) info.textContent = busca ? (totalEncontrados+" card(s) encontrado(s) de "+totalAtivos+" ativo(s).") : "";
 }
 function crmFollowupRenderizarAbaAtiva(){
   try {
@@ -11552,6 +11610,7 @@ try {
   if (typeof crmFollowupEnviarManual === "function") window.crmFollowupEnviarManual = crmFollowupEnviarManual;
   if (typeof crmFollowupAbrirManual === "function") window.crmFollowupAbrirManual = crmFollowupAbrirManual;
   if (typeof crmFollowupDestacarCard === "function") window.crmFollowupDestacarCard = crmFollowupDestacarCard;
+  if (typeof crmFollowupLimparBusca === "function") window.crmFollowupLimparBusca = crmFollowupLimparBusca;
   if (typeof renderFollowupAuto === "function") window.renderFollowupAuto = renderFollowupAuto;
 } catch(e) {}
 </script>
