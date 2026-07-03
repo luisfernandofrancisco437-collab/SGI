@@ -260,6 +260,10 @@ td{padding:10px 13px;vertical-align:middle}
 .owner-fu-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
 .owner-fu-head strong{display:block;color:#27262B;font-size:.92rem}
 .owner-fu-head small,.owner-fu-meta{display:block;color:#64748B;font-size:.72rem;line-height:1.35}
+.owner-fu-contact-btn{display:block;max-width:100%;border:0;background:transparent;padding:0;margin:0;text-align:left;font:inherit;color:inherit;cursor:pointer}
+.owner-fu-contact-btn strong{display:block;color:#27262B;font-size:.92rem;transition:color .16s ease,text-decoration-color .16s ease;text-decoration:underline;text-decoration-color:transparent;text-underline-offset:3px}
+.owner-fu-contact-btn small{display:block;color:#64748B;font-size:.72rem;line-height:1.35}
+.owner-fu-contact-btn:hover strong,.owner-fu-contact-btn:focus-visible strong{color:#2B7A9F;text-decoration-color:#2B7A9F}
 .owner-fu-badge{display:inline-flex;align-items:center;border-radius:999px;padding:4px 8px;font-size:.68rem;font-weight:900;white-space:nowrap}
 .owner-fu-badge.pendente{background:#FEE2E2;color:#991B1B}
 .owner-fu-badge.ok{background:#DCFCE7;color:#166534}
@@ -981,11 +985,11 @@ body.auth-locked #auth-screen{display:flex}
   <div class="tab active" onclick="showTab('dashboard')">📈 Dashboard</div>
   <div class="tab" onclick="showTab('cadastro')">📋 Cadastrar</div>
   <div class="tab" onclick="showTab('base')">🗄️ Base de Dados</div>
-  <div class="tab" onclick="showTab('followupprop')">🏠 Follow-up Proprietários</div>
   <div class="tab" onclick="showTab('consultas')">🔍 Consultas</div>
   <div class="tab" onclick="showTab('crm')">💼 CRM</div>
   <div class="tab" onclick="showTab('relatorios')">📊 Relatórios</div>
   <div class="tab" onclick="showTab('followup')">⏰ Follow-up</div>
+  <div class="tab" onclick="showTab('followupprop')">🏠 Follow-up Proprietários</div>
   <div class="tab" onclick="showTab('assistente')">✨ Assistente IA</div>
   <div class="tab" onclick="showTab('redes')">📣 Redes Sociais</div>
   <div class="tab" onclick="showTab('contatos')">👥 Contatos</div>
@@ -1245,6 +1249,14 @@ body.auth-locked #auth-screen{display:flex}
             <option>Alugado</option>
             <option>Vendido</option>
           </select>
+        </div>
+        <div>
+          <label>Data de retorno manual</label>
+          <input id="pf-retorno-data" type="date">
+        </div>
+        <div>
+          <label>Hora do retorno</label>
+          <input id="pf-retorno-hora" type="time">
         </div>
         <div>
           <label>Proprietário <span class="req">*</span></label>
@@ -2141,7 +2153,7 @@ body.auth-locked #auth-screen{display:flex}
         <div><label>Papel</label>
           <select id="cont-papel" onchange="renderContatos()" style="background:#fff">
             <option value="">Todos</option>
-            <option>Locador</option><option>Vendedor</option>
+            <option>Locador</option><option>Vendedor</option><option>Proprietário</option>
             <option>Locatário</option><option>Comprador</option>
           </select>
         </div>
@@ -2398,6 +2410,7 @@ body.auth-locked #auth-screen{display:flex}
             <option value="">Selecione...</option>
             <option>Locador</option>
             <option>Vendedor</option>
+            <option>Proprietário</option>
             <option>Locatário</option>
             <option>Comprador</option>
           </select>
@@ -4189,7 +4202,7 @@ function waAbrirTeste(){ toast("Conectividade com WhatsApp removida do sistema."
 
 function renderWhatsApp(){}
 document.addEventListener('click', function(e){ if(e.target && e.target.id==='modal-wa-bg') fecharWAConfig(); });
-var TABS = ["dashboard","cadastro","base","followupprop","consultas","crm","relatorios","followup","assistente","redes","contatos","agenda","admin"];
+var TABS = ["dashboard","cadastro","base","consultas","crm","relatorios","followup","followupprop","assistente","redes","contatos","agenda","admin"];
 function crmDataHojeISO() {
   var d = new Date();
   return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
@@ -4410,10 +4423,53 @@ function crmPropTodosVendidos(grupo){
   var ims = grupo.imoveis || [];
   return ims.length > 0 && ims.every(function(im){ return String(im.disp || "").toLowerCase() === "vendido"; });
 }
+function crmPropParseRetornoManual(v){
+  if(!v) return null;
+  var s = String(v || "").trim();
+  if(!s) return null;
+  var d = new Date(s);
+  if(isNaN(d.getTime()) && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(s)) d = new Date(s+":00");
+  if(isNaN(d.getTime()) && /^\d{4}-\d{2}-\d{2}$/.test(s)) d = new Date(s+"T09:00:00");
+  return isNaN(d.getTime()) ? null : d;
+}
+function crmPropRetornoManualAtual(grupo){
+  crmPropEnsureFU();
+  if(!grupo) return "";
+  var historicos = (DB.historicoFollowup || []).filter(function(h){
+    var key = h.proprietario_id || crmPropOwnerId(h.proprietario, h.telefone);
+    return key === grupo.key;
+  }).sort(function(a,b){ return new Date(b.data_contato || 0) - new Date(a.data_contato || 0); });
+  if(historicos.length) return historicos[0].retorno_manual || historicos[0].retornoManual || "";
+  var ims = (grupo.imoveis || []).filter(function(im){ return im.ownerNextReturn; }).sort(function(a,b){
+    return new Date(a.ownerNextReturn) - new Date(b.ownerNextReturn);
+  });
+  return ims[0] ? ims[0].ownerNextReturn : "";
+}
+function crmPropPreencherRetornoManual(iso){
+  var dataEl = document.getElementById("pf-retorno-data");
+  var horaEl = document.getElementById("pf-retorno-hora");
+  if(!dataEl || !horaEl) return;
+  dataEl.value = ""; horaEl.value = "";
+  if(!iso) return;
+  var s = String(iso || "");
+  if(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(s)) { dataEl.value = s.slice(0,10); horaEl.value = s.slice(11,16); return; }
+  var d = crmPropParseRetornoManual(iso);
+  if(!d) return;
+  function pad(n){ return String(n).padStart(2,"0"); }
+  dataEl.value = d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+  horaEl.value = pad(d.getHours())+":"+pad(d.getMinutes());
+}
 function crmPropStatusPrazo(grupo){
   var last = crmPropUltimoContato(grupo);
   var dias = crmPropDiasDesde(last);
   if(crmPropTodosVendidos(grupo)) return {tipo:"vendido", txt:"Vendido / sem alerta", dias:dias};
+  var retorno = crmPropRetornoManualAtual(grupo);
+  var retDate = crmPropParseRetornoManual(retorno);
+  if(retDate){
+    var agora = new Date();
+    if(retDate.getTime() <= agora.getTime()) return {tipo:"pendente", txt:"Retorno manual vencido", dias:dias, retorno:retorno};
+    return {tipo:"ok", txt:"Retorno agendado: "+crmPropFmtData(retorno), dias:dias, retorno:retorno};
+  }
   if(dias === null) return {tipo:"pendente", txt:"Sem contato registrado", dias:null};
   if(dias >= 90) return {tipo:"pendente", txt:"Pendente há "+dias+" dias", dias:dias};
   return {tipo:"ok", txt:"Em dia · "+dias+" dias", dias:dias};
@@ -4460,7 +4516,7 @@ function pfSelecionarImovel(){
   document.getElementById("pf-imovel-text").value = im.codigo+" - "+im.tipo+" - "+im.bairro+" - "+im.cidade;
 }
 function limparFollowupProprietario(){
-  ["pf-prop","pf-tel","pf-imovel-text","pf-obs"].forEach(function(id){ var el=document.getElementById(id); if(el) el.value=""; });
+  ["pf-prop","pf-tel","pf-imovel-text","pf-obs","pf-retorno-data","pf-retorno-hora"].forEach(function(id){ var el=document.getElementById(id); if(el) el.value=""; });
   var sel=document.getElementById("pf-imovel"); if(sel) sel.value="";
   var st=document.getElementById("pf-status"); if(st) st.value="Disponível";
 }
@@ -4469,6 +4525,49 @@ function abrirFollowupProprietarioPorImovel(cod){
   var sel=document.getElementById("pf-imovel"); if(sel) sel.value=cod;
   pfSelecionarImovel();
   var obs=document.getElementById("pf-obs"); if(obs) obs.focus();
+}
+function crmPropContatoPorGrupo(grupo, criar){
+  if(!grupo) return null;
+  if(!Array.isArray(DB.contatos)) DB.contatos = [];
+  var telKey = crmPropTelKey(grupo.tel || "");
+  var nomeNorm = String(grupo.nome || "").trim().toLowerCase();
+  var contato = null;
+  if(telKey) contato = DB.contatos.find(function(c){ return crmPropTelKey(c.tel || "") === telKey; }) || null;
+  if(!contato && nomeNorm) {
+    contato = DB.contatos.find(function(c){
+      var papel = String(c.papel || "").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+      return String(c.nome || "").trim().toLowerCase() === nomeNorm && papel === "proprietario";
+    }) || null;
+  }
+  if(contato) {
+    var mudou = false;
+    if(grupo.nome && contato.nome !== grupo.nome) { contato.nome = grupo.nome; mudou = true; }
+    if(grupo.tel && contato.tel !== grupo.tel) { contato.tel = grupo.tel; mudou = true; }
+    if(contato.papel !== "Proprietário") { contato.papel = "Proprietário"; mudou = true; }
+    if(mudou) contato.atualizadoEm = new Date().toISOString();
+    return contato;
+  }
+  if(!criar) return null;
+  var hoje = new Date().toLocaleDateString("pt-BR");
+  var im = grupo.imoveis && grupo.imoveis[0] ? grupo.imoveis[0] : null;
+  var codigo = im && im.codigo ? im.codigo : "";
+  var obs = "Ficha criada pelo Follow-up de Proprietários" + (codigo ? ". Imóvel vinculado: " + codigo : (grupo.externo ? ". Proprietário externo." : ""));
+  var seq = DB.cSeq || ((DB.contatos || []).length + 1);
+  var id = "C"+String(seq).padStart(3,"0");
+  DB.cSeq = seq + 1;
+  contato = {id:id,nome:grupo.nome || "Proprietário",tel:grupo.tel || "",email:"",papel:"Proprietário",obs:obs,data:hoje,origem:"Follow-up Proprietários"};
+  DB.contatos.push(contato);
+  return contato;
+}
+function abrirFichaContatoProprietario(key){
+  var grupo = crmPropAgrupar().find(function(x){ return x.key === key; });
+  if(!grupo){ toast("Proprietário não encontrado.", true); return; }
+  var contato = crmPropContatoPorGrupo(grupo, true);
+  if(!contato){ toast("Não foi possível abrir a ficha do proprietário.", true); return; }
+  salvarDB();
+  try { renderContatos(); } catch(e) {}
+  abrirContato(contato.id);
+  toast("Ficha do proprietário aberta. Use Observações para notas ou o botão Registrar contato para histórico.");
 }
 function abrirFollowupProprietario(key){
   showTab("followupprop");
@@ -4481,6 +4580,7 @@ function abrirFollowupProprietario(key){
     document.getElementById("pf-imovel").value = g.imoveis[0].codigo;
     pfSelecionarImovel();
   }
+  crmPropPreencherRetornoManual(crmPropRetornoManualAtual(g));
 }
 function registrarFollowupProprietario(){
   crmPropEnsureFU();
@@ -4491,6 +4591,10 @@ function registrarFollowupProprietario(){
   var status = (document.getElementById("pf-status").value || "Disponível").trim();
   var obs = (document.getElementById("pf-obs").value || "").trim();
   var desc = im ? (im.codigo+" - "+im.tipo+" - "+im.bairro) : (document.getElementById("pf-imovel-text").value || "").trim();
+  var retornoData = ((document.getElementById("pf-retorno-data") || {}).value || "").trim();
+  var retornoHora = ((document.getElementById("pf-retorno-hora") || {}).value || "").trim();
+  if(!retornoData && retornoHora){ toast("Informe a data do retorno manual ou deixe a hora em branco.", true); return; }
+  var retornoManual = retornoData ? (retornoData+"T"+(retornoHora || "09:00")+":00") : "";
   if(!nome || !tel || !status){ toast("Preencha proprietário, telefone e status do imóvel.", true); return; }
   var user = crmPropUsuarioAtual();
   var ownerId = crmPropOwnerId(nome,tel);
@@ -4507,6 +4611,9 @@ function registrarFollowupProprietario(){
     imovelCodigo:cod,
     imovelDescricao:desc,
     imovelExterno:!cod,
+    retorno_manual:retornoManual,
+    retorno_data:retornoData,
+    retorno_hora:retornoHora,
     status:status
   };
   DB.hfSeq = (DB.hfSeq || 1) + 1;
@@ -4516,6 +4623,7 @@ function registrarFollowupProprietario(){
       item.ownerLastContact = data;
       item.data_ultimo_contato = data;
       item.ownerLastUser = user.nome;
+      item.ownerNextReturn = retornoManual;
     }
   });
   if(im) im.disp = status;
@@ -4531,11 +4639,13 @@ function crmPropCardHTML(g){
   var chips = (g.imoveis || []).slice(0,5).map(function(im){
     return '<span class="owner-fu-chip">'+crmEscAttr(im.codigo)+' · '+crmEscAttr(im.disp || "")+'</span>';
   }).join("") || '<span class="owner-fu-chip">Fora da base</span>';
+  var retorno = crmPropRetornoManualAtual(g);
+  var retornoTxt = retorno ? crmPropFmtData(retorno) : "Não agendado";
   return '<div class="owner-fu-card">'+
-    '<div class="owner-fu-head"><div><strong>'+crmEscAttr(g.nome || "Proprietário")+'</strong><small>'+crmEscAttr(g.tel || "sem telefone")+'</small></div><span class="owner-fu-badge '+st.tipo+'">'+crmEscAttr(st.txt)+'</span></div>'+
+    '<div class="owner-fu-head"><button type="button" class="owner-fu-contact-btn" onclick="abrirFichaContatoProprietario(\''+g.key+'\')" title="Abrir ficha do contato"><strong>'+crmEscAttr(g.nome || "Proprietário")+'</strong><small>'+crmEscAttr(g.tel || "sem telefone")+'</small></button><span class="owner-fu-badge '+st.tipo+'">'+crmEscAttr(st.txt)+'</span></div>'+
     '<div class="owner-fu-imoveis">'+chips+'</div>'+
-    '<div class="owner-fu-meta">Último contato: '+crmEscAttr(crmPropFmtData(last))+'<br>Imóveis vinculados: '+(g.imoveis || []).length+(g.externo ? " · possui contato externo" : "")+'</div>'+
-    '<div class="owner-fu-actions"><button class="btn btn-primary" style="padding:7px 10px;font-size:.75rem" onclick="abrirFollowupProprietario(\''+g.key+'\')">Registrar contato</button></div>'+
+    '<div class="owner-fu-meta">Último contato: '+crmEscAttr(crmPropFmtData(last))+'<br>Retorno manual: '+crmEscAttr(retornoTxt)+'<br>Imóveis vinculados: '+(g.imoveis || []).length+(g.externo ? " · possui contato externo" : "")+'</div>'+
+    '<div class="owner-fu-actions"><button class="btn btn-primary" style="padding:7px 10px;font-size:.75rem" onclick="abrirFollowupProprietario(\''+g.key+'\')">Registrar contato</button><button class="btn btn-info" style="padding:7px 10px;font-size:.75rem" onclick="abrirFichaContatoProprietario(\''+g.key+'\')">Ficha / notas</button></div>'+
   '</div>';
 }
 function renderFollowupProprietarios(){
@@ -4569,6 +4679,7 @@ function renderFollowupProprietarios(){
   if(hist) hist.innerHTML = (DB.historicoFollowup || []).slice(0,30).map(function(h){
     return '<div class="owner-fu-history-item"><b>'+crmEscAttr(h.proprietario || "Proprietário")+' · '+crmEscAttr(h.status || "")+'</b>'+
       '<small>'+crmEscAttr(crmPropFmtData(h.data_contato))+' · '+crmEscAttr(h.usuario_nome || "")+' · '+crmEscAttr(h.imovelCodigo || h.imovelDescricao || "imóvel externo")+'</small>'+
+      (h.retorno_manual ? '<small>Retorno manual: '+crmEscAttr(crmPropFmtData(h.retorno_manual))+'</small>' : '')+
       (h.observacoes ? '<div>'+crmEscAttr(h.observacoes)+'</div>' : '')+'</div>';
   }).join("") || '<div class="empty"><p>Nenhum contato registrado ainda.</p></div>';
 }
@@ -4578,7 +4689,7 @@ function crmPropRenderDashboard(){
   var pend = crmPropFollowupPendentes().slice(0,6);
   el.innerHTML = pend.length ? pend.map(function(g){
     var st = crmPropStatusPrazo(g);
-    return '<div class="dash-item"><div><b>'+crmEscAttr(g.nome || "Proprietário")+'</b><small>'+crmEscAttr(g.tel || "")+' · '+crmEscAttr(st.txt)+'</small></div><button class="btn btn-info" onclick="abrirFollowupProprietario(\''+g.key+'\')">Abrir</button></div>';
+    return '<div class="dash-item"><button type="button" class="owner-fu-contact-btn" onclick="abrirFichaContatoProprietario(\''+g.key+'\')" title="Abrir ficha do contato"><b>'+crmEscAttr(g.nome || "Proprietário")+'</b><small>'+crmEscAttr(g.tel || "")+' · '+crmEscAttr(st.txt)+'</small></button><button class="btn btn-info" onclick="abrirFollowupProprietario(\''+g.key+'\')">Abrir</button></div>';
   }).join("") : '<div class="empty" style="padding:18px 0">Nenhum proprietário pendente.</div>';
 }
 
@@ -4748,7 +4859,7 @@ function salvarImovel() {
     toast("⚠️ Preencha todos os campos obrigatórios!", true); return;
   }
   var cod = gerarCod();
-  DB.imoveis.push({
+  var novoImovel = {
     codigo:cod, prop:campos.prop, tel:campos.tel, rua:campos.rua,
     bairro:campos.bairro, cidade:campos.cidade, tipo:campos.tipo,
     valor:parseMoeda(campos.valor), valorVenda:campos.op === "Locação ou Venda" ? parseMoeda(campos.valorVenda) : (campos.op === "Venda" ? parseMoeda(campos.valor) : 0), op:campos.op, disp:campos.disp,
@@ -4760,7 +4871,9 @@ function salvarImovel() {
     diferenciais: getDiferenciais("f-diferenciais-wrap"),
     fotos: getFotosBase("f-foto-grid"),
     publicado: false
-  });
+  };
+  DB.imoveis.push(novoImovel);
+  crmSincronizarContatoProprietario(novoImovel);
   DB.iSeq++;
   if (!salvarDB()) { toast("⚠️ Não foi possível confirmar o salvamento. Reduza a quantidade/tamanho das fotos e tente novamente.", true); return; }
   limparFormImovel();
@@ -4863,6 +4976,7 @@ function salvarEdicaoImovel() {
     diferenciais: getDiferenciais("mi-diferenciais-wrap"),
     fotos: getFotosBase("mi-foto-grid")
   });
+  crmSincronizarContatoProprietario(DB.imoveis[idx]);
   salvarDB();
   fecharModalIm();
   toast("✅ Imóvel " + editImId + " atualizado!");
@@ -7180,6 +7294,45 @@ function crmSincronizarContatoNegocio(nome,tel,op,obsExtra) {
   var id = "C" + String(DB.cSeq).padStart(3,"0");
   DB.cSeq++;
   contato = {id:id,nome:nome,tel:tel,email:"",papel:papel,obs:obsBase,data:hoje,origem:"CRM"};
+  DB.contatos.push(contato);
+  return contato;
+}
+
+
+function crmSincronizarContatoProprietario(imovel) {
+  imovel = imovel || {};
+  var nome = String(imovel.prop || "").trim();
+  var tel = String(imovel.tel || "").trim();
+  if (!nome || !tel) return null;
+  if (!Array.isArray(DB.contatos)) DB.contatos = [];
+  if (!DB.cSeq) DB.cSeq = 1;
+  var key = crmTelefoneKey(tel);
+  var hoje = new Date().toLocaleDateString("pt-BR");
+  var codigo = imovel.codigo || "";
+  var obsBase = "Proprietário cadastrado automaticamente pelo cadastro de imóveis.";
+  if (codigo) obsBase += " Imóvel: " + codigo + ".";
+  if (imovel.op) obsBase += " Operação: " + imovel.op + ".";
+  if (imovel.tipo || imovel.bairro || imovel.cidade) {
+    obsBase += " Perfil do imóvel: " + [imovel.tipo, imovel.bairro, imovel.cidade].filter(Boolean).join(" - ") + ".";
+  }
+  var contato = DB.contatos.find(function(c){ return crmTelefoneKey(c.tel) === key; });
+  if (contato) {
+    contato.nome = nome;
+    contato.tel = tel;
+    contato.papel = "Proprietário";
+    var obsAtual = String(contato.obs || "");
+    if (codigo && obsAtual.indexOf(codigo) < 0) {
+      contato.obs = (obsAtual ? obsAtual + " | " : "") + obsBase;
+    } else if (!obsAtual) {
+      contato.obs = obsBase;
+    }
+    contato.atualizadoEm = new Date().toISOString();
+    contato.origem = contato.origem || "Cadastro de Imóvel";
+    return contato;
+  }
+  var id = "C" + String(DB.cSeq).padStart(3,"0");
+  DB.cSeq++;
+  contato = {id:id,nome:nome,tel:tel,email:"",papel:"Proprietário",obs:obsBase,data:hoje,origem:"Cadastro de Imóvel"};
   DB.contatos.push(contato);
   return contato;
 }
