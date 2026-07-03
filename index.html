@@ -927,6 +927,8 @@ body.auth-locked #auth-screen{display:flex}
 .follow-auto-col{min-width:235px;flex:0 0 235px;background:#F1F5F9;border-radius:12px;padding:0 9px 9px;max-height:calc(100vh - 290px);overflow:auto}
 .follow-auto-head{position:sticky;top:0;z-index:2;margin:0 -9px 9px;padding:9px 10px;border-radius:12px 12px 8px 8px;color:#fff;font-weight:900;font-size:.78rem;display:flex;justify-content:space-between;gap:8px;align-items:center}
 .follow-auto-card{background:#fff;border-radius:9px;padding:10px;margin-bottom:8px;box-shadow:0 1px 6px rgba(15,23,42,.10);border-left:4px solid #7C3AED;cursor:pointer}
+.follow-auto-card.follow-auto-focus{outline:3px solid #22C55E;box-shadow:0 0 0 6px rgba(34,197,94,.18),0 12px 30px rgba(15,23,42,.18);animation:followFocusPulse 1.2s ease-in-out 3}
+@keyframes followFocusPulse{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
 .follow-auto-card b{display:block;color:#27262B;font-size:.82rem}
 .follow-auto-card small{display:block;color:#64748B;font-size:.7rem;margin-top:3px;line-height:1.35}
 .follow-auto-tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px}
@@ -6901,10 +6903,32 @@ function crmFollowupEntrar(n,motivo,label){
   crmFollowupGerarTarefa(n, crmFollowupEtapa("reativacao"));
   return true;
 }
+function crmFollowupDestacarCard(id, abrirFicha){
+  id = String(id || "");
+  if(!id) return;
+  setTimeout(function(){
+    var alvo = null;
+    try {
+      var cards = document.querySelectorAll(".follow-auto-card[data-follow-id]");
+      Array.prototype.forEach.call(cards, function(card){
+        if(card.getAttribute("data-follow-id") === id) alvo = card;
+      });
+      if(alvo){
+        alvo.scrollIntoView({behavior:"smooth", block:"center", inline:"center"});
+        alvo.classList.add("follow-auto-focus");
+        setTimeout(function(){ if(alvo) alvo.classList.remove("follow-auto-focus"); }, 5200);
+      }
+    } catch(e) {}
+    if(abrirFicha !== false && typeof abrirNegocio === "function") {
+      setTimeout(function(){ abrirNegocio(id); }, alvo ? 350 : 50);
+    }
+  }, 180);
+}
 function crmFollowupAbrirManual(id){
   showTab("followup");
   try{ renderFollowupAuto(); }catch(e){}
   try{ renderFU(); }catch(e){}
+  crmFollowupDestacarCard(id, true);
 }
 function crmFollowupEnviarManual(id){
   var n=(DB.negocios||[]).find(function(x){return x.id===id;});
@@ -7028,6 +7052,8 @@ function renderFollowupAuto(){
         }).join("");
         var card=document.createElement("div");
         card.className="follow-auto-card";
+        card.setAttribute("data-follow-id", n.id || "");
+        card.setAttribute("data-follow-stage", et.id || "");
         card.innerHTML='<b>'+crmFollowupSafeEsc(n.cliente||n.id)+'</b><small>'+crmFollowupSafeEsc(n.tel||"")+' · '+crmFollowupSafeEsc(n.etapa||"")+'</small>'+
           '<div class="follow-auto-tags">'+(Array.isArray(n.labels)?n.labels:[]).map(function(lb){return '<span class="follow-auto-tag">'+crmFollowupSafeEsc(lb)+'</span>';}).join("")+'</div>'+
           '<div class="follow-auto-actions"><button class="btn btn-success" onclick="crmFollowupRegistrarContato(\''+crmFollowupSafeEsc(n.id)+'\');event.stopPropagation()">Novo contato</button><button class="btn btn-primary" onclick="crmFollowupAvancarManual(\''+crmFollowupSafeEsc(n.id)+'\');event.stopPropagation()">Avançar fase</button><button class="btn btn-info" onclick="abrirNegocio(\''+crmFollowupSafeEsc(n.id)+'\');event.stopPropagation()">Ficha</button><button class="btn btn-ghost" onclick="crmFollowupReativar(\''+crmFollowupSafeEsc(n.id)+'\');event.stopPropagation()">Reativar</button></div>'+
@@ -11179,6 +11205,7 @@ try {
   if (typeof crmFollowupReativar === "function") window.crmFollowupReativar = crmFollowupReativar;
   if (typeof crmFollowupEnviarManual === "function") window.crmFollowupEnviarManual = crmFollowupEnviarManual;
   if (typeof crmFollowupAbrirManual === "function") window.crmFollowupAbrirManual = crmFollowupAbrirManual;
+  if (typeof crmFollowupDestacarCard === "function") window.crmFollowupDestacarCard = crmFollowupDestacarCard;
   if (typeof renderFollowupAuto === "function") window.renderFollowupAuto = renderFollowupAuto;
 } catch(e) {}
 </script>
