@@ -152,6 +152,7 @@ td{padding:10px 13px;vertical-align:middle}
 .pcard .pct{display:flex;gap:3px;flex-wrap:wrap;margin-top:5px}
 .pcard-actions{display:flex;gap:6px;align-items:center;margin-top:8px;padding-top:7px;border-top:1px solid rgba(67,66,71,.10)}
 .pcard-wa{width:100%;justify-content:center;padding:6px 9px;font-size:.72rem;border-radius:8px}
+.pcard-follow-btn{width:100%;justify-content:center;padding:6px 9px;font-size:.72rem;border-radius:8px}
 .pcard.pcard-compact{padding:10px 11px;min-height:0}
 .pcard-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
 .pcard-main{min-width:0;flex:1}
@@ -4628,10 +4629,12 @@ function registrarFollowupProprietario(){
   });
   if(im) im.disp = status;
   salvarDB();
+  limparFollowupProprietario();
   renderFollowupProprietarios();
   renderBase();
   renderDashboard();
-  toast("Contato com proprietário registrado.");
+  toast("Contato com proprietário registrado. Formulário limpo para novo cadastro.");
+  if(typeof _verificarAlertas === "function") setTimeout(_verificarAlertas, 250);
 }
 function crmPropCardHTML(g){
   var st = crmPropStatusPrazo(g);
@@ -6239,6 +6242,10 @@ function crmPipelineCardResumo(n, opts) {
   if (entrega && entrega.alert && entrega.alert !== "ok") {
     alerta = '<div class="pcard-alert-mini">'+crmEscAttr(entrega.txt || "Atenção ao prazo")+'</div>';
   }
+  var followAtivo = !!(n && n.followPipeline && !n.followArchived);
+  var followAcao = n.fechado ? "" : (followAtivo
+    ? '<button type="button" class="btn btn-info pcard-follow-btn" onclick="event.stopPropagation();crmFollowupAbrirManual(\''+crmEscAttr(n.id || "")+'\')">Ver Follow-up</button>'
+    : '<button type="button" class="btn btn-primary pcard-follow-btn" onclick="event.stopPropagation();crmFollowupEnviarManual(\''+crmEscAttr(n.id || "")+'\')">Enviar p/ Follow-up</button>');
   return ''+
     '<div class="pcard-top">'+
       '<div class="pcard-main">'+
@@ -6250,7 +6257,8 @@ function crmPipelineCardResumo(n, opts) {
     '<div class="pcard-badges">'+crmAprovacaoBadge(n)+crmTermometroLeadBadge(n)+bOp(n.op)+(fu.cls ? ' <span class="fubadge '+fu.cls+'">'+fu.txt+'</span>' : '')+'</div>'+
     '<div class="pcard-money"><strong>'+valor+'</strong><span>'+fmtV2(com.val)+'</span></div>'+
     '<div class="pcard-meta"><span>Proximo contato: '+proximo+'</span>'+(meta.length ? '<span>'+meta.join(' | ')+'</span>' : '')+'</div>'+
-    alerta;
+    alerta+
+    (followAcao ? '<div class="pcard-actions">'+followAcao+'</div>' : '');
 }
 
 function crmContatoNegocio(n) {
@@ -6892,6 +6900,27 @@ function crmFollowupEntrar(n,motivo,label){
   crmFollowupLog(n,"Movido para Follow-up: "+(motivo||"reativação"));
   crmFollowupGerarTarefa(n, crmFollowupEtapa("reativacao"));
   return true;
+}
+function crmFollowupAbrirManual(id){
+  showTab("followup");
+  try{ renderFollowupAuto(); }catch(e){}
+  try{ renderFU(); }catch(e){}
+}
+function crmFollowupEnviarManual(id){
+  var n=(DB.negocios||[]).find(function(x){return x.id===id;});
+  if(!n){ toast("Lead não encontrado.", true); return; }
+  if(n.followPipeline && !n.followArchived){ crmFollowupAbrirManual(id); toast("Este lead já está no Follow-up."); return; }
+  if(!confirm("Enviar o lead \""+(n.cliente||n.id)+"\" para o Pipeline de Follow-up e Reativação?")) return;
+  var ok = crmFollowupEntrar(n,"Enviado manualmente pelo card do CRM","Entrada manual");
+  if(!ok){ toast("Não foi possível enviar o lead para o Follow-up.", true); return; }
+  n.followManualAt = new Date().toISOString();
+  n.followArchived = false;
+  salvarDB();
+  try{ renderCRM(); }catch(e){}
+  try{ renderFU(); }catch(e){}
+  try{ renderAgenda(); }catch(e){}
+  crmFollowupAbrirManual(id);
+  toast("Lead enviado manualmente para o Follow-up.");
 }
 function crmFollowupReativar(id){
   var n=(DB.negocios||[]).find(function(x){return x.id===id;});
@@ -9052,8 +9081,51 @@ function _verificarAlertas() {
     _alertasDisparados[key] = true;
     _criarAlertaChaves(n, st);
   });
+  _verificarAlertasFollowupProprietarios(agora);
 }
 
+
+function _verificarAlertasFollowupProprietarios(agora) {
+  if (typeof crmPropAgrupar !== "function" || typeof crmPropRetornoManualAtual !== "function" || typeof crmPropParseRetornoManual !== "function") return;
+  agora = agora || new Date();
+  try {
+    crmPropAgrupar().forEach(function(g){
+      if (!g || crmPropTodosVendidos(g)) return;
+      var retorno = crmPropRetornoManualAtual(g);
+      var dt = crmPropParseRetornoManual(retorno);
+      if (!dt) return;
+      if (dt.getTime() > agora.getTime()) return;
+      var key = "prop-retorno-"+g.key+"-"+retorno;
+      if (_alertasDisparados[key]) return;
+      _alertasDisparados[key] = true;
+      _criarAlertaProprietario(g, retorno);
+    });
+  } catch(e) { console.warn("follow-up proprietários alerta error:", e); }
+}
+function _criarAlertaProprietario(g, retorno) {
+  var card=document.createElement("div");
+  card.className="alerta-card alerta-30m";
+  var key = crmEscAttr(g.key || "");
+  card.innerHTML=
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;width:100%">'
+    +'<div style="min-width:0"><div style="font-weight:800;font-size:.9rem">🏠 Retorno com proprietário</div>'
+    +'<div style="font-size:.82rem;margin-top:3px;color:#1E293B;font-weight:800">'+crmEscAttr(g.nome || "Proprietário")+'</div>'
+    +'<div style="font-size:.78rem;margin-top:3px;opacity:.85">Retorno manual vencido: '+crmEscAttr(crmPropFmtData(retorno))+'</div>'
+    +'<div style="font-size:.72rem;margin-top:2px;color:#64748B">'+crmEscAttr(g.tel || "sem telefone")+'</div>'
+    +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:9px">'
+    +'<button class="btn btn-primary" style="padding:6px 9px;font-size:.72rem" onclick="abrirFollowupProprietario(\''+key+'\');this.closest(\'.alerta-card\').remove()">Registrar contato</button>'
+    +'<button class="btn btn-info" style="padding:6px 9px;font-size:.72rem" onclick="abrirFichaContatoProprietario(\''+key+'\');this.closest(\'.alerta-card\').remove()">Ficha / notas</button>'
+    +'</div></div>'
+    +'<button class="alerta-fechar" onclick="this.closest(\'.alerta-card\').remove()">✕</button>'
+    +'</div>';
+  var cont=document.getElementById("alertas-container") || document.getElementById("alerta-panel");
+  if(cont) cont.appendChild(card);
+  var tocou = crmTocarSomAlertaAtividade();
+  if(!tocou && typeof toast === "function") toast("Retorno de proprietário vencido. O navegador pode bloquear áudio até uma interação do usuário.");
+  if(typeof Notification !== "undefined" && Notification.permission==="granted")
+    new Notification("🏠 Retorno com proprietário",{body:(g.nome || "Proprietário")+" · "+crmPropFmtData(retorno)});
+  setTimeout(function(){ if(card.parentNode) card.remove(); },60000);
+}
 
 function _criarAlertaCard(t, janela, minutos) {
   var ico=TIPO_ICO_ALERTA[t.tipo]||"📌";
@@ -11105,6 +11177,8 @@ try {
   if (typeof crmFollowupAvancarManual === "function") window.crmFollowupAvancarManual = crmFollowupAvancarManual;
   if (typeof crmFollowupRodarAutomacao === "function") window.crmFollowupRodarAutomacao = crmFollowupRodarAutomacao;
   if (typeof crmFollowupReativar === "function") window.crmFollowupReativar = crmFollowupReativar;
+  if (typeof crmFollowupEnviarManual === "function") window.crmFollowupEnviarManual = crmFollowupEnviarManual;
+  if (typeof crmFollowupAbrirManual === "function") window.crmFollowupAbrirManual = crmFollowupAbrirManual;
   if (typeof renderFollowupAuto === "function") window.renderFollowupAuto = renderFollowupAuto;
 } catch(e) {}
 </script>
