@@ -890,6 +890,22 @@ input:focus,select:focus,textarea:focus{
 .hb-match-panel strong{color:#065F46}
 .hb-match-panel a{display:inline-flex;margin-top:8px;margin-right:6px;background:#059669;color:#fff;text-decoration:none;border-radius:8px;padding:7px 10px;font-weight:900}
 .hb-match-panel ul{margin:8px 0 0 18px;color:#475569}
+
+/* CONFIGURACOES DINAMICAS DE COMISSAO */
+.commission-settings-card{border:1.5px solid rgba(67,66,71,.12);border-radius:14px;background:rgba(255,255,255,.86);box-shadow:0 18px 55px rgba(15,23,42,.08);overflow:hidden}
+.commission-settings-intro{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:14px;color:#64748B;font-size:.82rem}
+.commission-required-banner{border:1px solid rgba(217,119,6,.24);background:#FFFBEB;color:#92400E;border-radius:10px;padding:10px 12px;font-size:.82rem;margin-bottom:14px}
+.commission-settings-grid{display:grid;grid-template-columns:repeat(2,minmax(260px,1fr));gap:12px}
+.commission-settings-section{border:1px solid rgba(67,66,71,.12);border-radius:12px;background:rgba(255,255,255,.72);padding:12px}
+.commission-settings-section h3{font-size:.9rem;color:#434247;margin-bottom:10px}
+.commission-settings-section small{display:block;color:#64748B;font-size:.72rem;line-height:1.35;margin-top:7px}
+.commission-inline-fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.commission-settings-actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-top:14px}
+.commission-onboarding .modal{max-width:940px}
+.commission-onboarding .mhd button{display:none}
+@media (max-width:780px){.commission-settings-grid{grid-template-columns:1fr}.commission-inline-fields{grid-template-columns:1fr}}
+
+
 /* AUTENTICACAO E ADMINISTRACAO */
 body.auth-locked{overflow:hidden}
 body.auth-locked>header,body.auth-locked>.tabs,body.auth-locked>.panel,body.auth-locked>.modal-bg,body.auth-locked>#toast,body.auth-locked>#alerta-panel{display:none!important}
@@ -997,6 +1013,7 @@ body.auth-locked #auth-screen{display:flex}
   <div class="tab" onclick="showTab('redes')">📣 Redes Sociais</div>
   <div class="tab" onclick="showTab('contatos')">👥 Contatos</div>
   <div class="tab" onclick="showTab('agenda')">📅 Agenda</div>
+  <div class="tab" onclick="showTab('config')">⚙ Configurações</div>
   <div class="tab" id="nav-admin-tab" onclick="showTab('admin')" style="display:none">⚙ Administração</div>
 </div>
 
@@ -1564,11 +1581,11 @@ body.auth-locked #auth-screen{display:flex}
           </button>
           <button type="button" class="crm-registros-item" onclick="abrirRegistroCRM('terceiros')" role="menuitem">
             <span class="crm-registros-icon" style="background:#7C3AED">3º</span>
-            <span><strong>Comissão sobre negócio de terceiros</strong><small>Venda 15% · Locação 10%</small></span>
+            <span><strong>Comissão sobre negócio de terceiros</strong><small>Percentuais definidos em Configurações</small></span>
           </button>
           <button type="button" class="crm-registros-item" onclick="abrirRegistroCRM('parceria')" role="menuitem">
             <span class="crm-registros-icon" style="background:#B86F18">%</span>
-            <span><strong>Comissão em parceria</strong><small>Venda 7,5% · Locação 5%</small></span>
+            <span><strong>Comissão em parceria</strong><small>Percentuais definidos em Configurações</small></span>
           </button>
         </div>
       </div>
@@ -1940,7 +1957,7 @@ body.auth-locked #auth-screen{display:flex}
               <th title="Data efetiva do recebimento">Dt. Efetiva Recebto</th>
               <th title="Valor já recebido">Valor Recebido</th>
               <th title="Valor em haver (saldo em aberto)">Saldo em Aberto</th>
-              <th title="Cashback mensal: 0,7% sobre a taxa administrativa informada">Cashback</th>
+              <th title="Cashback mensal conforme percentual salvo em Configurações">Cashback</th>
               <th title="Data prevista para recebimento do saldo residual">Prev. Saldo</th>
               <th>Status</th>
               <th>Ação</th>
@@ -1968,6 +1985,71 @@ body.auth-locked #auth-screen{display:flex}
 
 </div>
 
+
+
+<!-- ═══════════ CONFIGURACOES ═══════════ -->
+<div id="tab-config" class="panel">
+  <div class="commission-settings-card">
+    <div class="card-header">⚙️ Parâmetros de Comissões e Cashback</div>
+    <div class="card-body">
+      <div class="commission-settings-intro">
+        <div>
+          <h2 style="color:#434247;font-size:1.1rem;margin-bottom:4px">Configuração por corretor</h2>
+          <p>Defina os percentuais padrão usados nos cálculos de novos negócios, captações, parcerias e cashback.</p>
+        </div>
+        <span class="badge" style="background:#E8E7EA;color:#434247">Salvo na base do usuário logado</span>
+      </div>
+      <div class="commission-required-banner">No primeiro acesso, confirme estes percentuais para liberar o uso do CRM.</div>
+
+      <div class="commission-settings-grid">
+        <div class="commission-settings-section">
+          <h3>Base de venda</h3>
+          <label>Percentual-base da venda (%)</label>
+          <input id="comcfg-venda-base" type="text" inputmode="decimal" placeholder="Ex: 6">
+          <small>Usado para calcular a comissão-base sobre o valor negociado em vendas.</small>
+        </div>
+        <div class="commission-settings-section">
+          <h3>Cashback</h3>
+          <label>Cashback mensal (%)</label>
+          <input id="comcfg-cashback-mensal" type="text" inputmode="decimal" placeholder="Ex: 0,7">
+          <small>Aplicado mensalmente sobre o saldo da taxa administrativa da locação.</small>
+        </div>
+        <div class="commission-settings-section">
+          <h3>Captação</h3>
+          <div class="commission-inline-fields">
+            <div><label>Locação (%)</label><input id="comcfg-captacao-loc" type="text" inputmode="decimal"></div>
+            <div><label>Venda (%)</label><input id="comcfg-captacao-venda" type="text" inputmode="decimal"></div>
+          </div>
+        </div>
+        <div class="commission-settings-section">
+          <h3>Captação em parceria</h3>
+          <div class="commission-inline-fields">
+            <div><label>Locação (%)</label><input id="comcfg-captacao-parceria-loc" type="text" inputmode="decimal"></div>
+            <div><label>Venda (%)</label><input id="comcfg-captacao-parceria-venda" type="text" inputmode="decimal"></div>
+          </div>
+        </div>
+        <div class="commission-settings-section">
+          <h3>Fechamento</h3>
+          <div class="commission-inline-fields">
+            <div><label>Locação (%)</label><input id="comcfg-fechamento-loc" type="text" inputmode="decimal"></div>
+            <div><label>Venda (%)</label><input id="comcfg-fechamento-venda" type="text" inputmode="decimal"></div>
+          </div>
+        </div>
+        <div class="commission-settings-section">
+          <h3>Fechamento em parceria</h3>
+          <div class="commission-inline-fields">
+            <div><label>Locação (%)</label><input id="comcfg-fechamento-parceria-loc" type="text" inputmode="decimal"></div>
+            <div><label>Venda (%)</label><input id="comcfg-fechamento-parceria-venda" type="text" inputmode="decimal"></div>
+          </div>
+        </div>
+      </div>
+      <div class="commission-settings-actions">
+        <button type="button" class="btn btn-info" onclick="carregarConfigComissoes()">Restaurar valores da base</button>
+        <button type="button" class="btn btn-success" onclick="salvarConfigComissoes(false)">Salvar parâmetros</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- ═══════════ ADMINISTRACAO ═══════════ -->
 <div id="tab-admin" class="panel">
@@ -2311,6 +2393,68 @@ body.auth-locked #auth-screen{display:flex}
 <div id="alerta-panel"></div>
 
 
+
+<!-- ═══════════ ONBOARDING DE COMISSOES ═══════════ -->
+<div class="modal-bg commission-onboarding" id="modal-comissao-onboarding-bg">
+  <div class="modal">
+    <div class="mhd">
+      <span>⚙️ Configuração inicial obrigatória</span>
+      <button type="button">✕</button>
+    </div>
+    <div class="mbody">
+      <div class="commission-required-banner">
+        Antes de usar o CRM, cadastre os percentuais padrão de comissão e cashback do seu perfil. Esses valores ficam salvos para o corretor logado e podem ser alterados depois em Configurações.
+      </div>
+
+      <div class="commission-settings-grid">
+        <div class="commission-settings-section">
+          <h3>Base de venda</h3>
+          <label>Percentual-base da venda (%)</label>
+          <input id="ob-comcfg-venda-base" type="text" inputmode="decimal" placeholder="Ex: 6">
+          <small>Usado para calcular a comissão-base sobre o valor negociado em vendas.</small>
+        </div>
+        <div class="commission-settings-section">
+          <h3>Cashback</h3>
+          <label>Cashback mensal (%)</label>
+          <input id="ob-comcfg-cashback-mensal" type="text" inputmode="decimal" placeholder="Ex: 0,7">
+          <small>Aplicado mensalmente sobre o saldo da taxa administrativa da locação.</small>
+        </div>
+        <div class="commission-settings-section">
+          <h3>Captação</h3>
+          <div class="commission-inline-fields">
+            <div><label>Locação (%)</label><input id="ob-comcfg-captacao-loc" type="text" inputmode="decimal"></div>
+            <div><label>Venda (%)</label><input id="ob-comcfg-captacao-venda" type="text" inputmode="decimal"></div>
+          </div>
+        </div>
+        <div class="commission-settings-section">
+          <h3>Captação em parceria</h3>
+          <div class="commission-inline-fields">
+            <div><label>Locação (%)</label><input id="ob-comcfg-captacao-parceria-loc" type="text" inputmode="decimal"></div>
+            <div><label>Venda (%)</label><input id="ob-comcfg-captacao-parceria-venda" type="text" inputmode="decimal"></div>
+          </div>
+        </div>
+        <div class="commission-settings-section">
+          <h3>Fechamento</h3>
+          <div class="commission-inline-fields">
+            <div><label>Locação (%)</label><input id="ob-comcfg-fechamento-loc" type="text" inputmode="decimal"></div>
+            <div><label>Venda (%)</label><input id="ob-comcfg-fechamento-venda" type="text" inputmode="decimal"></div>
+          </div>
+        </div>
+        <div class="commission-settings-section">
+          <h3>Fechamento em parceria</h3>
+          <div class="commission-inline-fields">
+            <div><label>Locação (%)</label><input id="ob-comcfg-fechamento-parceria-loc" type="text" inputmode="decimal"></div>
+            <div><label>Venda (%)</label><input id="ob-comcfg-fechamento-parceria-venda" type="text" inputmode="decimal"></div>
+          </div>
+        </div>
+      </div>
+      <div class="commission-settings-actions">
+        <button type="button" class="btn btn-success" onclick="salvarConfigComissoes(true)">Salvar e acessar sistema</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ═══════════ MODAL TAREFA ═══════════ -->
 <div class="modal-bg" id="modal-tarefa-bg">
   <div class="modal" style="max-width:740px">
@@ -2547,10 +2691,10 @@ body.auth-locked #auth-screen{display:flex}
         </div>
         <div><label>Minha Participação <span class="req">*</span></label>
           <div class="part-checks" id="n-part-wrap">
-            <label class="part-opt"><input type="checkbox" value="captacao"              onchange="calcCom()"> Captação <small id="hint-captacao" style="color:#64748B">(Loc 10% · Venda 15%)</small></label>
-            <label class="part-opt"><input type="checkbox" value="captacao-parceria"   onchange="calcCom()"> Captação em Parceria <small id="hint-captacao-parceria" style="color:#64748B">(Loc 5% · Venda 7,5%)</small></label>
-            <label class="part-opt"><input type="checkbox" value="fechamento"           onchange="calcCom()"> Fechamento <small id="hint-fechamento" style="color:#64748B">(Loc 40% · Venda 35%)</small></label>
-            <label class="part-opt"><input type="checkbox" value="fechamento-parceria"  onchange="calcCom()"> Fechamento em Parceria <small id="hint-fechamento-parceria" style="color:#64748B">(Loc 20% · Venda 17,5%)</small></label>
+            <label class="part-opt"><input type="checkbox" value="captacao"              onchange="calcCom()"> Captação <small id="hint-captacao" style="color:#64748B">(Configurar percentuais)</small></label>
+            <label class="part-opt"><input type="checkbox" value="captacao-parceria"   onchange="calcCom()"> Captação em Parceria <small id="hint-captacao-parceria" style="color:#64748B">(Configurar percentuais)</small></label>
+            <label class="part-opt"><input type="checkbox" value="fechamento"           onchange="calcCom()"> Fechamento <small id="hint-fechamento" style="color:#64748B">(Configurar percentuais)</small></label>
+            <label class="part-opt"><input type="checkbox" value="fechamento-parceria"  onchange="calcCom()"> Fechamento em Parceria <small id="hint-fechamento-parceria" style="color:#64748B">(Configurar percentuais)</small></label>
           </div>
         </div>
         <div><label>Etapa</label>
@@ -2793,7 +2937,7 @@ body.auth-locked #auth-screen{display:flex}
               <input id="pgto-cashback-rescisao" type="date" onchange="renderCashbackPgto()" title="Data da rescisão">
             </div>
             <div class="cashback-field">
-              <label>Cashback mensal automático (0,7% sobre a taxa adm.)</label>
+              <label>Cashback mensal automático (<span id="cashback-pct-label">0,7%</span> sobre a taxa adm.)</label>
               <input id="pgto-cashback-mensal" type="text" readonly style="background:#ECFDF5;color:#047857;font-weight:800;text-align:center">
             </div>
             <div class="cashback-field">
@@ -3325,6 +3469,8 @@ function authAplicarUI() {
   var adminTab = document.getElementById("nav-admin-tab");
   if (adminTab) adminTab.style.display = user.role === "admin" ? "" : "none";
   if (user.role === "admin") authRenderUsuarios();
+  if (typeof carregarConfigComissoes === "function") carregarConfigComissoes();
+  if (typeof crmComissaoAplicarOnboarding === "function") crmComissaoAplicarOnboarding();
 }
 
 function authExigirAdmin() {
@@ -3468,7 +3614,8 @@ var DB = {
   redesSociais: [],
   rsSeq: 1,
   historicoFollowup: [],
-  hfSeq: 1
+  hfSeq: 1,
+  configComissoes: null
 };
 
 // ═══════════════════════════════════════════
@@ -3498,6 +3645,7 @@ function _snapshotDB(incluirContatos) {
     captacoes: DB.captacoes || [],
     redesSociais: DB.redesSociais || [],
     historicoFollowup: DB.historicoFollowup || [],
+    configComissoes: DB.configComissoes || null,
     iSeq: DB.iSeq || 1, nSeq: DB.nSeq || 1, cSeq: DB.cSeq || 1, tSeq: DB.tSeq || 1, pSeq: DB.pSeq || 1, capSeq: DB.capSeq || 1, rsSeq: DB.rsSeq || 1, hfSeq: DB.hfSeq || 1
   };
 }
@@ -3521,6 +3669,7 @@ function _aplicarSnapshotDB(data) {
   DB.captacoes = Array.isArray(data.captacoes) ? data.captacoes : [];
   DB.redesSociais = Array.isArray(data.redesSociais) ? data.redesSociais : [];
   DB.historicoFollowup = Array.isArray(data.historicoFollowup) ? data.historicoFollowup : [];
+  DB.configComissoes = data.configComissoes ? (typeof crmComissaoMergeConfig === "function" ? crmComissaoMergeConfig(data.configComissoes) : data.configComissoes) : null;
   DB.iSeq = data.iSeq || 1;
   DB.nSeq = data.nSeq || 1;
   DB.cSeq = data.cSeq || 1;
@@ -4075,28 +4224,245 @@ function fuStatus(d) {
   return {cls:"fu-ok", txt:"🟢 Em "+diff+"d"};
 }
 
+
+// ═══════════════════════════════════════════
+//  PARAMETROS DINAMICOS DE COMISSAO/CASHBACK
+// ═══════════════════════════════════════════
+var CRM_COMISSAO_CAMPOS = [
+  {id:"venda-base", path:["vendaBase"], label:"Percentual-base da venda"},
+  {id:"cashback-mensal", path:["cashbackMensal"], label:"Cashback mensal"},
+  {id:"captacao-loc", path:["taxas","captacao","locacao"], label:"Captação locação"},
+  {id:"captacao-venda", path:["taxas","captacao","venda"], label:"Captação venda"},
+  {id:"captacao-parceria-loc", path:["taxas","captacao-parceria","locacao"], label:"Captação em parceria locação"},
+  {id:"captacao-parceria-venda", path:["taxas","captacao-parceria","venda"], label:"Captação em parceria venda"},
+  {id:"fechamento-loc", path:["taxas","fechamento","locacao"], label:"Fechamento locação"},
+  {id:"fechamento-venda", path:["taxas","fechamento","venda"], label:"Fechamento venda"},
+  {id:"fechamento-parceria-loc", path:["taxas","fechamento-parceria","locacao"], label:"Fechamento em parceria locação"},
+  {id:"fechamento-parceria-venda", path:["taxas","fechamento-parceria","venda"], label:"Fechamento em parceria venda"}
+];
+
+function crmComissaoDefaultConfig() {
+  return {
+    configurado:false,
+    vendaBase:6,
+    cashbackMensal:0.7,
+    taxas:{
+      captacao:{locacao:10, venda:15},
+      "captacao-parceria":{locacao:5, venda:7.5},
+      fechamento:{locacao:40, venda:35},
+      "fechamento-parceria":{locacao:20, venda:17.5}
+    },
+    corretorId:null,
+    atualizadoEm:null
+  };
+}
+
+function crmComissaoClone(obj) {
+  return JSON.parse(JSON.stringify(obj || {}));
+}
+
+function crmComissaoParseNumero(valor, fallback) {
+  if (valor === null || valor === undefined || valor === "") return fallback;
+  if (typeof valor === "number") return isNaN(valor) ? fallback : valor;
+  var s = String(valor).trim().replace(/\s/g,"").replace(/[^0-9,.-]/g,"");
+  if (!s) return fallback;
+  var lastComma = s.lastIndexOf(",");
+  var lastDot = s.lastIndexOf(".");
+  if (lastComma >= 0 && lastDot >= 0) {
+    if (lastComma > lastDot) s = s.replace(/\./g,"").replace(",",".");
+    else s = s.replace(/,/g,"");
+  } else if (lastComma >= 0) {
+    s = s.replace(",",".");
+  } else {
+    var dots = (s.match(/\./g) || []).length;
+    if (dots > 1) {
+      var last = s.lastIndexOf(".");
+      s = s.slice(0,last).replace(/\./g,"") + s.slice(last);
+    }
+  }
+  var n = Number(s);
+  return isNaN(n) ? fallback : n;
+}
+
+function crmComissaoMergeConfig(raw) {
+  var cfg = crmComissaoDefaultConfig();
+  raw = raw || {};
+  cfg.configurado = raw.configurado === true;
+  cfg.vendaBase = crmComissaoParseNumero(raw.vendaBase, cfg.vendaBase);
+  cfg.cashbackMensal = crmComissaoParseNumero(raw.cashbackMensal, cfg.cashbackMensal);
+  cfg.corretorId = raw.corretorId || null;
+  cfg.atualizadoEm = raw.atualizadoEm || null;
+  if (raw.taxas) {
+    Object.keys(cfg.taxas).forEach(function(k){
+      if (raw.taxas[k]) {
+        cfg.taxas[k].locacao = crmComissaoParseNumero(raw.taxas[k].locacao, cfg.taxas[k].locacao);
+        cfg.taxas[k].venda = crmComissaoParseNumero(raw.taxas[k].venda, cfg.taxas[k].venda);
+      }
+    });
+  }
+  return cfg;
+}
+
+function crmComissaoEnsureConfig() {
+  if (!DB.configComissoes) DB.configComissoes = crmComissaoDefaultConfig();
+  DB.configComissoes = crmComissaoMergeConfig(DB.configComissoes);
+  return DB.configComissoes;
+}
+
+function crmComissaoGetByPath(cfg, path) {
+  var ref = cfg;
+  for (var i=0;i<path.length;i++) ref = ref && ref[path[i]];
+  return ref;
+}
+
+function crmComissaoSetByPath(cfg, path, value) {
+  var ref = cfg;
+  for (var i=0;i<path.length-1;i++) {
+    if (!ref[path[i]]) ref[path[i]] = {};
+    ref = ref[path[i]];
+  }
+  ref[path[path.length-1]] = value;
+}
+
+function crmComissaoFmtPct(v) {
+  return Number(v || 0).toLocaleString("pt-BR", {minimumFractionDigits:0, maximumFractionDigits:2});
+}
+
+function crmComissaoBaseVendaPct(cfg) {
+  cfg = cfg || crmComissaoEnsureConfig();
+  return Math.max(0, Number(cfg.vendaBase) || 0);
+}
+
+function crmComissaoCashbackPct(cfg) {
+  cfg = cfg || crmComissaoEnsureConfig();
+  return Math.max(0, Number(cfg.cashbackMensal) || 0);
+}
+
+function crmComissaoPercentual(part, op, cfg) {
+  cfg = cfg || crmComissaoEnsureConfig();
+  var taxa = cfg.taxas && cfg.taxas[part];
+  if (!taxa) return 0;
+  if (op === "Locação") return Math.max(0, Number(taxa.locacao) || 0);
+  if (op === "Venda") return Math.max(0, Number(taxa.venda) || 0);
+  return 0;
+}
+
+function crmComissaoHint(part, op) {
+  var cfg = crmComissaoEnsureConfig();
+  var loc = crmComissaoPercentual(part, "Locação", cfg);
+  var ven = crmComissaoPercentual(part, "Venda", cfg);
+  var base = crmComissaoBaseVendaPct(cfg);
+  if (op === "Locação") return "(" + crmComissaoFmtPct(loc) + "% sobre o valor do aluguel)";
+  if (op === "Venda") return "(" + crmComissaoFmtPct(ven) + "% sobre " + crmComissaoFmtPct(base) + "% do valor de venda)";
+  return "(Loc " + crmComissaoFmtPct(loc) + "% · Venda " + crmComissaoFmtPct(ven) + "%)";
+}
+
+function crmAtualizarHintsComissao(op) {
+  var map = {
+    "hint-captacao":"captacao",
+    "hint-captacao-parceria":"captacao-parceria",
+    "hint-fechamento":"fechamento",
+    "hint-fechamento-parceria":"fechamento-parceria"
+  };
+  Object.keys(map).forEach(function(id){
+    var el = document.getElementById(id);
+    if (el) el.textContent = crmComissaoHint(map[id], op || "");
+  });
+  crmAtualizarLabelsCashback();
+}
+
+function crmAtualizarLabelsCashback() {
+  var el = document.getElementById("cashback-pct-label");
+  if (el) el.textContent = crmComissaoFmtPct(crmComissaoCashbackPct()) + "%";
+}
+
+function crmComissaoPreencher(prefix) {
+  var cfg = crmComissaoEnsureConfig();
+  CRM_COMISSAO_CAMPOS.forEach(function(campo){
+    var el = document.getElementById(prefix + "-" + campo.id);
+    if (el) el.value = String(crmComissaoGetByPath(cfg, campo.path));
+  });
+}
+
+function crmComissaoLer(prefix) {
+  var cfg = crmComissaoMergeConfig(DB.configComissoes);
+  var erros = [];
+  CRM_COMISSAO_CAMPOS.forEach(function(campo){
+    var el = document.getElementById(prefix + "-" + campo.id);
+    if (!el) return;
+    var bruto = String(el.value || "").trim();
+    var n = crmComissaoParseNumero(bruto, NaN);
+    if (bruto === "" || isNaN(n) || n < 0) erros.push(campo.label);
+    else crmComissaoSetByPath(cfg, campo.path, n);
+  });
+  if (erros.length) throw new Error("Preencha percentuais válidos em: " + erros.join(", ") + ".");
+  var user = window.CRMAuth ? CRMAuth.current() : null;
+  cfg.configurado = true;
+  cfg.corretorId = user ? (user.id || user.username || user.name || null) : null;
+  cfg.atualizadoEm = new Date().toISOString();
+  return cfg;
+}
+
+function carregarConfigComissoes() {
+  crmComissaoPreencher("comcfg");
+  crmComissaoPreencher("ob-comcfg");
+  var opEl = document.getElementById("n-op");
+  crmAtualizarHintsComissao(opEl ? opEl.value : "");
+}
+
+function salvarConfigComissoes(onboarding) {
+  try {
+    var prefix = onboarding ? "ob-comcfg" : "comcfg";
+    DB.configComissoes = crmComissaoLer(prefix);
+    salvarDB();
+    carregarConfigComissoes();
+    var modal = document.getElementById("modal-comissao-onboarding-bg");
+    if (modal) modal.classList.remove("open");
+    toast("✅ Parâmetros de comissão e cashback salvos.");
+    if (typeof renderCRM === "function") renderCRM();
+    if (typeof renderRelatorios === "function") renderRelatorios();
+    if (typeof renderComissoes2 === "function") renderComissoes2();
+  } catch(e) {
+    toast(e.message || "Não foi possível salvar os parâmetros.", true);
+  }
+}
+
+function crmComissaoConfigurada() {
+  return !!(DB && DB.configComissoes && DB.configComissoes.configurado === true);
+}
+
+function crmComissaoPrecisaOnboarding() {
+  var user = window.CRMAuth ? CRMAuth.current() : null;
+  return !!user && !crmComissaoConfigurada();
+}
+
+function crmComissaoAplicarOnboarding() {
+  var user = window.CRMAuth ? CRMAuth.current() : null;
+  var modal = document.getElementById("modal-comissao-onboarding-bg");
+  if (!user || !modal) return;
+  carregarConfigComissoes();
+  if (crmComissaoPrecisaOnboarding()) {
+    if (typeof showTab === "function") showTab("config");
+    modal.classList.add("open");
+  } else {
+    modal.classList.remove("open");
+  }
+}
+
+
 function comissao(valor, op, part) {
-  // part pode ser string ou array
-  // Venda: comissão calculada sobre valor × 6% (base de negociação)
-  // Locação: comissão calculada diretamente sobre o valor
-  //
-  // Percentuais vigentes:
-  //   Locação: captacao=10% | captacao-parceria=5% | fechamento=40% | fechamento-parceria=20%
-  //   Venda:   captacao=15% | captacao-parceria=7,5% | fechamento=35% | fechamento-parceria=17,5%
+  var cfg = crmComissaoEnsureConfig();
   var partes = Array.isArray(part) ? part : (part ? [part] : []);
   var opAmbigua = op === "Locação ou Venda";
-  var base = op === "Venda" ? valor * 0.06 : valor;
+  valor = Number(valor) || 0;
+  var baseVenda = crmComissaoBaseVendaPct(cfg) / 100;
+  var base = op === "Venda" ? valor * baseVenda : valor;
   if (opAmbigua) base = valor;
   var val = 0, perc = 0;
   partes.forEach(function(pr) {
-    var p = 0;
-    if (opAmbigua) { p = 0; }
-    else if (pr === "captacao")              p = op === "Locação" ? 10   : 15;
-    else if (pr === "captacao-parceria")     p = op === "Locação" ?  5   :  7.5;
-    else if (pr === "fechamento")            p = op === "Locação" ? 40   : 35;
-    else if (pr === "fechamento-parceria")   p = op === "Locação" ? 20   : 17.5;
-    val  += base * p / 100;
-    perc += op === "Venda" ? p * 0.06 : p;
+    var p = opAmbigua ? 0 : crmComissaoPercentual(pr, op, cfg);
+    val += base * p / 100;
+    perc += op === "Venda" ? p * baseVenda : p;
   });
   return {perc: perc, val: val};
 }
@@ -4205,7 +4571,7 @@ function waAbrirTeste(){ toast("Conectividade com WhatsApp removida do sistema."
 
 function renderWhatsApp(){}
 document.addEventListener('click', function(e){ if(e.target && e.target.id==='modal-wa-bg') fecharWAConfig(); });
-var TABS = ["dashboard","cadastro","base","consultas","crm","relatorios","followup","followupprop","assistente","redes","contatos","agenda","admin"];
+var TABS = ["dashboard","cadastro","base","consultas","crm","relatorios","followup","followupprop","assistente","redes","contatos","agenda","config","admin"];
 function crmDataHojeISO() {
   var d = new Date();
   return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
@@ -4357,6 +4723,7 @@ function showTab(id) {
   if (id === "redes")     renderRedesSociais();
   if (id === "contatos")   renderContatos();
   if (id === "agenda")     renderAgenda();
+  if (id === "config")    carregarConfigComissoes();
   if (id === "admin")      { if (!authExigirAdmin()) { showTab("crm"); return; } authRenderUsuarios(); crmFollowupCarregarConfig(); }
 }
 
@@ -7127,31 +7494,7 @@ function calcCom() {
   var op   = document.getElementById("n-op").value;
   var part = getPartSelecionadas();
 
-  // ── Atualiza os hints de percentual conforme a operação ──
-  var hCapt  = document.getElementById("hint-captacao");
-  var hParc  = document.getElementById("hint-captacao-parceria");
-  var hFech  = document.getElementById("hint-fechamento");
-  var hFParc = document.getElementById("hint-fechamento-parceria");
-  if (hCapt) {
-    if      (op === "Locação") hCapt.textContent = "(10% sobre o valor do aluguel)";
-    else if (op === "Venda")   hCapt.textContent = "(15% sobre 6% do valor de venda)";
-    else                       hCapt.textContent = "(Loc 10% · Venda 15%)";
-  }
-  if (hParc) {
-    if      (op === "Locação") hParc.textContent = "(5% sobre o valor do aluguel)";
-    else if (op === "Venda")   hParc.textContent = "(7,5% sobre 6% do valor de venda)";
-    else                       hParc.textContent = "(Loc 5% · Venda 7,5%)";
-  }
-  if (hFech) {
-    if      (op === "Locação") hFech.textContent = "(40% sobre o valor do aluguel)";
-    else if (op === "Venda")   hFech.textContent = "(35% sobre 6% do valor de venda)";
-    else                       hFech.textContent = "(Loc 40% · Venda 35%)";
-  }
-  if (hFParc) {
-    if      (op === "Locação") hFParc.textContent = "(20% sobre o valor do aluguel)";
-    else if (op === "Venda")   hFParc.textContent = "(17,5% sobre 6% do valor de venda)";
-    else                       hFParc.textContent = "(Loc 20% · Venda 17,5%)";
-  }
+  crmAtualizarHintsComissao(op);
 
   if (val && op && part.length) {
     var c = comissao(val, op, part);
@@ -9547,18 +9890,20 @@ function _ensureCaptacoes() {
 }
 
 function tipoComissaoExternaInfo(tipo) {
+  var cfg = crmComissaoEnsureConfig();
   var map = {
-    captacao:  {titulo:"Comissão sobre captação", venda:15,  locacao:10,  cor:"#B86F18"},
-    terceiros: {titulo:"Comissão sobre negócio de terceiros", venda:15,  locacao:10,  cor:"#7C3AED"},
-    parceria:  {titulo:"Comissão em parceria", venda:7.5, locacao:5,   cor:"#0F766E"}
+    captacao:  {titulo:"Comissão sobre captação", venda:crmComissaoPercentual("captacao", "Venda", cfg), locacao:crmComissaoPercentual("captacao", "Locação", cfg), cor:"#B86F18", part:"captacao"},
+    terceiros: {titulo:"Comissão sobre negócio de terceiros", venda:crmComissaoPercentual("captacao", "Venda", cfg), locacao:crmComissaoPercentual("captacao", "Locação", cfg), cor:"#7C3AED", part:"captacao"},
+    parceria:  {titulo:"Comissão em parceria", venda:crmComissaoPercentual("captacao-parceria", "Venda", cfg), locacao:crmComissaoPercentual("captacao-parceria", "Locação", cfg), cor:"#0F766E", part:"captacao-parceria"}
   };
   return map[tipo || "captacao"] || map.captacao;
 }
 function calcularComissaoCaptacaoExterna(valor, op, tipo) {
   valor = Number(valor) || 0;
+  var cfg = crmComissaoEnsureConfig();
   var info = tipoComissaoExternaInfo(tipo);
   var perc = op === "Venda" ? info.venda : info.locacao;
-  var base = op === "Venda" ? valor * 0.06 : valor;
+  var base = op === "Venda" ? valor * (crmComissaoBaseVendaPct(cfg) / 100) : valor;
   return {base:base, perc:perc, val:base * perc / 100, tipo:tipo || "captacao", titulo:info.titulo};
 }
 
@@ -9572,7 +9917,7 @@ function atualizarCalculoCaptacao() {
   var valor = parseMoeda(valorEl.value || "0");
   var calc = calcularComissaoCaptacaoExterna(valor, opEl.value, tipo);
   var regra = opEl.value === "Venda"
-    ? "Venda: 6% do valor negociado = "+fmtV2(calc.base)+"; "+calc.titulo+" = "+String(calc.perc).replace(".",",")+"% dessa comissão-base."
+    ? "Venda: "+crmComissaoFmtPct(crmComissaoBaseVendaPct())+"% do valor negociado = "+fmtV2(calc.base)+"; "+calc.titulo+" = "+String(calc.perc).replace(".",",")+"% dessa comissão-base."
     : "Locação: "+calc.titulo+" = "+String(calc.perc).replace(".",",")+"% sobre o valor negociado da locação.";
   preview.innerHTML = "<strong>"+calc.titulo+"</strong><br><strong>Comissão calculada: "+fmtV2(calc.val)+"</strong><br><small>"+regra+"</small>";
 }
@@ -10697,7 +11042,7 @@ function _cashbackBaseAdmin(n) {
 
 function _cashbackMensal(n) {
   if (!n || n.op !== "Locação" || !n.comCashbackAdmin10) return 0;
-  return _cashbackBaseAdmin(n) * 0.007;
+  return _cashbackBaseAdmin(n) * (crmComissaoCashbackPct() / 100);
 }
 
 function _cashbackFimEfetivo(n) {
@@ -10746,6 +11091,7 @@ function _cashbackResumo(n) {
 }
 
 function renderCashbackPgto() {
+  crmAtualizarLabelsCashback();
   var n = _pgtoNegId ? DB.negocios.find(function(x){ return x.id===_pgtoNegId; }) : null;
   if (!n) return;
   var adminEl = document.getElementById("pgto-cashback-admin10");
