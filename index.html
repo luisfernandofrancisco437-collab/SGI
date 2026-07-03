@@ -254,6 +254,25 @@ td{padding:10px 13px;vertical-align:middle}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
 .kpibox{border-radius:12px;padding:16px 18px;color:#fff;flex:1;min-width:170px}
 .relcard{background:#fff;border-radius:10px;padding:18px;box-shadow:0 2px 8px rgba(0,0,0,.07)}.dash-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;margin-bottom:18px}.dash-card{background:rgba(255,255,255,.84);border:1px solid rgba(255,255,255,.72);border-radius:12px;padding:16px;box-shadow:0 14px 40px rgba(23,32,51,.10);backdrop-filter:blur(16px)}.dash-card small{display:block;color:#64748B;font-weight:800;margin-bottom:8px}.dash-card strong{display:block;color:#27262B;font-size:1.65rem;line-height:1}.dash-card span{display:block;color:#64748B;font-size:.78rem;margin-top:8px}.dash-actions{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0 18px}.dash-list{display:grid;gap:8px}.dash-item{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:10px 12px}.dash-item b{font-size:.84rem;color:#27262B}.dash-item small{display:block;color:#64748B;font-size:.72rem;margin-top:2px}
+.owner-fu-toolbar{display:grid;grid-template-columns:minmax(220px,1fr) 210px auto;gap:10px;align-items:end;margin-bottom:14px}
+.owner-fu-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.owner-fu-card{background:rgba(255,255,255,.9);border:1px solid rgba(67,66,71,.12);border-radius:12px;padding:14px;box-shadow:0 12px 34px rgba(23,32,51,.08);display:grid;gap:9px}
+.owner-fu-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.owner-fu-head strong{display:block;color:#27262B;font-size:.92rem}
+.owner-fu-head small,.owner-fu-meta{display:block;color:#64748B;font-size:.72rem;line-height:1.35}
+.owner-fu-badge{display:inline-flex;align-items:center;border-radius:999px;padding:4px 8px;font-size:.68rem;font-weight:900;white-space:nowrap}
+.owner-fu-badge.pendente{background:#FEE2E2;color:#991B1B}
+.owner-fu-badge.ok{background:#DCFCE7;color:#166534}
+.owner-fu-badge.vendido{background:#E5E7EB;color:#374151}
+.owner-fu-imoveis{display:flex;gap:5px;flex-wrap:wrap}
+.owner-fu-chip{background:#F1F5F9;color:#334155;border-radius:999px;padding:3px 7px;font-size:.68rem;font-weight:800}
+.owner-fu-actions{display:flex;gap:7px;flex-wrap:wrap}
+.owner-fu-history{display:grid;gap:8px;max-height:360px;overflow:auto}
+.owner-fu-history-item{background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:10px 12px;font-size:.78rem;color:#334155}
+.owner-fu-history-item b{display:block;color:#27262B;margin-bottom:3px}
+.owner-fu-history-item small{display:block;color:#64748B;font-size:.68rem}
+@media(max-width:760px){.owner-fu-toolbar{grid-template-columns:1fr}.owner-fu-head{flex-direction:column}}
+
 .relcard h4{font-size:.88rem;font-weight:700;color:var(--azul);margin-bottom:12px;border-bottom:2px solid var(--azul-cl);padding-bottom:7px}
 .relrow{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #F8FAFC;font-size:.83rem}
 .relrow:last-child{border:none}
@@ -962,6 +981,7 @@ body.auth-locked #auth-screen{display:flex}
   <div class="tab active" onclick="showTab('dashboard')">📈 Dashboard</div>
   <div class="tab" onclick="showTab('cadastro')">📋 Cadastrar</div>
   <div class="tab" onclick="showTab('base')">🗄️ Base de Dados</div>
+  <div class="tab" onclick="showTab('followupprop')">🏠 Follow-up Proprietários</div>
   <div class="tab" onclick="showTab('consultas')">🔍 Consultas</div>
   <div class="tab" onclick="showTab('crm')">💼 CRM</div>
   <div class="tab" onclick="showTab('relatorios')">📊 Relatórios</div>
@@ -994,6 +1014,10 @@ body.auth-locked #auth-screen{display:flex}
     <div class="dash-card">
       <small>Leads prioritários</small>
       <div id="dash-leads" class="dash-list"></div>
+    </div>
+    <div class="dash-card">
+      <small>Proprietários que precisam de contato</small>
+      <div id="dash-proprietarios-fu" class="dash-list"></div>
     </div>
   </div>
 </div>
@@ -1196,6 +1220,84 @@ body.auth-locked #auth-screen{display:flex}
         </table>
       </div>
       <div id="empty-base" class="empty" style="display:none"><div class="ico2">🏚️</div><p>Nenhum imóvel cadastrado.</p></div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════ FOLLOW-UP PROPRIETÁRIOS ═══════════ -->
+<div id="tab-followupprop" class="panel">
+  <div class="card">
+    <div class="card-header">🏠 Follow-up de Proprietários</div>
+    <div class="card-body">
+      <div id="prop-fu-kpis" class="dash-grid"></div>
+      <div class="form-grid">
+        <div>
+          <label>Imóvel cadastrado</label>
+          <select id="pf-imovel" onchange="pfSelecionarImovel()">
+            <option value="">Imóvel não cadastrado / contato externo</option>
+          </select>
+        </div>
+        <div>
+          <label>Status do imóvel</label>
+          <select id="pf-status">
+            <option>Disponível</option>
+            <option>Alugado</option>
+            <option>Vendido</option>
+          </select>
+        </div>
+        <div>
+          <label>Proprietário <span class="req">*</span></label>
+          <input id="pf-prop" type="text" placeholder="Nome do proprietário">
+        </div>
+        <div>
+          <label>Telefone <span class="req">*</span></label>
+          <input id="pf-tel" type="text" placeholder="(00) 00000-0000" maxlength="16">
+        </div>
+        <div class="full">
+          <label>Imóvel externo ou observação do imóvel</label>
+          <input id="pf-imovel-text" type="text" placeholder="Ex: Casa no Jardim Ypê, ainda não cadastrada">
+        </div>
+        <div class="full">
+          <label>Observações do contato</label>
+          <textarea id="pf-obs" placeholder="Registre o que foi confirmado com o proprietário, preço, disponibilidade, documentação, interesse, etc."></textarea>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="registrarFollowupProprietario()">💾 Registrar Contato</button>
+        <button class="btn btn-info" onclick="limparFollowupProprietario()">🔄 Limpar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">📌 Proprietários que precisam de contato</div>
+    <div class="card-body">
+      <div class="owner-fu-toolbar">
+        <div>
+          <label>Buscar proprietário, telefone ou código</label>
+          <input id="pf-busca" type="search" placeholder="Digite para filtrar..." oninput="renderFollowupProprietarios()">
+        </div>
+        <div>
+          <label>Filtro</label>
+          <select id="pf-filtro" onchange="renderFollowupProprietarios()">
+            <option value="todos">Todos</option>
+            <option value="pendente">Follow-up Pendente</option>
+            <option value="ok">Em dia</option>
+            <option value="externo">Imóveis fora da base</option>
+            <option value="vendido">Vendidos</option>
+          </select>
+        </div>
+        <button class="btn btn-secondary" type="button" onclick="renderFollowupProprietarios()">Atualizar</button>
+      </div>
+      <div id="prop-fu-lista" class="owner-fu-grid"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">🧾 Histórico de contatos com proprietários</div>
+    <div class="card-body">
+      <div id="prop-fu-historico" class="owner-fu-history"></div>
     </div>
   </div>
 </div>
@@ -3348,7 +3450,9 @@ var DB = {
   captacoes: [],
   capSeq: 1,
   redesSociais: [],
-  rsSeq: 1
+  rsSeq: 1,
+  historicoFollowup: [],
+  hfSeq: 1
 };
 
 // ═══════════════════════════════════════════
@@ -3377,7 +3481,8 @@ function _snapshotDB(incluirContatos) {
     previsoes: DB.previsoes || [],
     captacoes: DB.captacoes || [],
     redesSociais: DB.redesSociais || [],
-    iSeq: DB.iSeq || 1, nSeq: DB.nSeq || 1, cSeq: DB.cSeq || 1, tSeq: DB.tSeq || 1, pSeq: DB.pSeq || 1, capSeq: DB.capSeq || 1, rsSeq: DB.rsSeq || 1
+    historicoFollowup: DB.historicoFollowup || [],
+    iSeq: DB.iSeq || 1, nSeq: DB.nSeq || 1, cSeq: DB.cSeq || 1, tSeq: DB.tSeq || 1, pSeq: DB.pSeq || 1, capSeq: DB.capSeq || 1, rsSeq: DB.rsSeq || 1, hfSeq: DB.hfSeq || 1
   };
 }
 
@@ -3399,6 +3504,7 @@ function _aplicarSnapshotDB(data) {
   DB.previsoes = Array.isArray(data.previsoes) ? data.previsoes : [];
   DB.captacoes = Array.isArray(data.captacoes) ? data.captacoes : [];
   DB.redesSociais = Array.isArray(data.redesSociais) ? data.redesSociais : [];
+  DB.historicoFollowup = Array.isArray(data.historicoFollowup) ? data.historicoFollowup : [];
   DB.iSeq = data.iSeq || 1;
   DB.nSeq = data.nSeq || 1;
   DB.cSeq = data.cSeq || 1;
@@ -3406,6 +3512,7 @@ function _aplicarSnapshotDB(data) {
   DB.pSeq = data.pSeq || 1;
   DB.capSeq = data.capSeq || 1;
   DB.rsSeq = data.rsSeq || 1;
+  DB.hfSeq = data.hfSeq || 1;
   _corrigirSequenciaContatos();
   try { if (typeof crmFollowupNormalizarSistema === "function") crmFollowupNormalizarSistema(); } catch(_eFU) {}
   return true;
@@ -3909,7 +4016,7 @@ function parseBr(s) {
 }
 function codTag(c)  { return '<span class="cod">'+c+'</span>'; }
 function bDisp(d) {
-  var m = {Disponível:"bd",Indisponível:"bi","Em negociação":"bn",Reservado:"br"};
+  var m = {Disponível:"bd",Indisponível:"bi","Em negociação":"bn",Reservado:"br",Alugado:"bn",Vendido:"bi"};
   return '<span class="badge '+(m[d]||"bd")+'">'+d+'</span>';
 }
 function bOp(op) {
@@ -3980,8 +4087,9 @@ function comissao(valor, op, part) {
 
 function acoes(tipo, id) {
   if (tipo === "im") {
-    return '<button class="btn btn-info" style="padding:4px 10px;font-size:.78rem" onclick="editarImovel(\''+id+'\')">✏️</button> '+
-           '<button class="btn btn-danger" style="padding:4px 10px;font-size:.78rem" onclick="confirmarExcluirImovel(\''+id+'\')">🗑️</button>';
+    return '<button class="btn btn-info" style="padding:4px 10px;font-size:.78rem" onclick="editarImovel(\''+id+'\')" title="Editar imóvel">✏️</button> '+
+           '<button class="btn btn-primary" style="padding:4px 10px;font-size:.78rem" onclick="abrirFollowupProprietarioPorImovel(\''+id+'\')" title="Follow-up do proprietário">📞</button> '+
+           '<button class="btn btn-danger" style="padding:4px 10px;font-size:.78rem" onclick="confirmarExcluirImovel(\''+id+'\')" title="Excluir imóvel">🗑️</button>';
   }
   return '<button class="btn btn-info" style="padding:4px 10px;font-size:.78rem" onclick="abrirNegocio(\''+id+'\')">Abrir</button>';
 }
@@ -4081,7 +4189,7 @@ function waAbrirTeste(){ toast("Conectividade com WhatsApp removida do sistema."
 
 function renderWhatsApp(){}
 document.addEventListener('click', function(e){ if(e.target && e.target.id==='modal-wa-bg') fecharWAConfig(); });
-var TABS = ["dashboard","cadastro","base","consultas","crm","relatorios","followup","assistente","redes","contatos","agenda","admin"];
+var TABS = ["dashboard","cadastro","base","followupprop","consultas","crm","relatorios","followup","assistente","redes","contatos","agenda","admin"];
 function crmDataHojeISO() {
   var d = new Date();
   return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
@@ -4176,7 +4284,12 @@ function renderDashboard(){
     if (!n.fu || n.fechado) return false;
     var d = new Date(n.fu + "T00:00:00"); return !isNaN(d) && d < hoje;
   });
-  var quentes = negocios.filter(function(n){ return Number(n.iaScore || n.score || 0) >= 51 || /quente/i.test(String(n.temperatura || n.termometro || n.iaPerfil || "")); });
+  var quentes = negocios.filter(function(n){
+    if (n.fechado || n.etapa === "Fechado" || n.etapa === "Leads perdidos") return false;
+    var r = typeof iaClassificarNegocio === "function" ? iaClassificarNegocio(n) : {pontos:Number(n.iaScore || n.score || 0)};
+    n._dashIaScore = r.pontos;
+    return r.pontos >= 51;
+  }).sort(function(a,b){ return (b._dashIaScore||0) - (a._dashIaScore||0); });
   var pipelineValor = abertos.reduce(function(s,n){ return s + Number(n.valor || 0); }, 0);
   var kpis = [
     ["Imóveis", imoveis.length, "Total cadastrado"],
@@ -4201,9 +4314,11 @@ function renderDashboard(){
   if (leads) {
     var pri = quentes.slice(0,6);
     leads.innerHTML = pri.length ? pri.map(function(n){
-      return '<div class="dash-item"><div><b>'+crmEscAttr(n.cliente||"Lead")+'</b><small>'+crmEscAttr(n.op||"")+' · '+crmEscAttr(n.etapa||"")+' · '+(Number(n.iaScore||n.score||0)||0)+' pts</small></div><button class="btn btn-info" onclick="abrirNegocio(\''+n.id+'\')">Abrir</button></div>';
+      var ri = typeof iaClassificarNegocio === "function" ? iaClassificarNegocio(n) : {pontos:Number(n.iaScore||n.score||0)||0};
+      return '<div class="dash-item"><div><b>'+crmEscAttr(n.cliente||"Lead")+'</b><small>'+crmEscAttr(n.op||"")+' · '+crmEscAttr(n.etapa||"")+' · '+ri.pontos+' pts</small></div><button class="btn btn-info" onclick="abrirNegocio(\''+n.id+'\')">Abrir</button></div>';
     }).join("") : '<div class="empty" style="padding:18px 0">Sem leads quentes no momento.</div>';
   }
+  if (typeof crmPropRenderDashboard === "function") crmPropRenderDashboard();
 }
 
 function showTab(id) {
@@ -4216,6 +4331,7 @@ function showTab(id) {
   if (panel) panel.classList.add("active");
   if (id === "dashboard")  renderDashboard();
   if (id === "base")       renderBase();
+  if (id === "followupprop") renderFollowupProprietarios();
   if (id === "consultas")  { renderStats(); filtrar(); }
   if (id === "crm")        { renderCRM(); renderCRMCashbackReceber(); renderCRMCaptacoesReceber(); }
   if (id === "relatorios") { renderRelatorios(); renderKPIs(); renderCRMComissoes(); renderComissoes2(); }
@@ -4226,6 +4342,244 @@ function showTab(id) {
   if (id === "contatos")   renderContatos();
   if (id === "agenda")     renderAgenda();
   if (id === "admin")      { if (!authExigirAdmin()) { showTab("crm"); return; } authRenderUsuarios(); crmFollowupCarregarConfig(); }
+}
+
+
+// ═══════════════════════════════════════════
+//  FOLLOW-UP DE PROPRIETÁRIOS
+// ═══════════════════════════════════════════
+function crmPropEnsureFU(){
+  if(!Array.isArray(DB.historicoFollowup)) DB.historicoFollowup = [];
+  if(!DB.hfSeq) DB.hfSeq = 1;
+}
+function crmPropTelKey(tel){
+  if(typeof crmTelefoneKey === "function") return crmTelefoneKey(tel || "");
+  return String(tel || "").replace(/\D/g,"").slice(-11);
+}
+function crmPropSlug(v){
+  var s = String(v || "").toLowerCase();
+  try { s = s.normalize("NFD").replace(/[\u0300-\u036f]/g,""); } catch(e) {}
+  return s.replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"") || "sem-nome";
+}
+function crmPropOwnerId(nome,tel){
+  var k = crmPropTelKey(tel);
+  return k ? "tel-"+k : "nome-"+crmPropSlug(nome);
+}
+function crmPropUsuarioAtual(){
+  try {
+    var u = window.CRMAuth && CRMAuth.current ? CRMAuth.current() : null;
+    if(u) return {id:u.id || u.username || "usuario", nome:u.name || u.username || u.id || "Usuário"};
+  } catch(e) {}
+  return {id:"local", nome:"Usuário local"};
+}
+function crmPropISOHoje(){
+  return new Date().toISOString();
+}
+function crmPropFmtData(iso){
+  if(!iso) return "Sem contato";
+  var d = new Date(iso);
+  if(isNaN(d.getTime())) {
+    if(/^\d{4}-\d{2}-\d{2}$/.test(String(iso))) return fmtIso(String(iso));
+    return String(iso);
+  }
+  return d.toLocaleDateString("pt-BR")+" "+d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
+}
+function crmPropDiasDesde(iso){
+  if(!iso) return null;
+  var d = new Date(iso);
+  if(isNaN(d.getTime()) && /^\d{4}-\d{2}-\d{2}$/.test(String(iso))) d = new Date(String(iso)+"T00:00:00");
+  if(isNaN(d.getTime())) return null;
+  var hoje = new Date(); hoje.setHours(0,0,0,0);
+  d.setHours(0,0,0,0);
+  return Math.floor((hoje - d) / 86400000);
+}
+function crmPropUltimoContato(grupo){
+  crmPropEnsureFU();
+  var datas = [];
+  (grupo.imoveis || []).forEach(function(im){
+    if(im.ownerLastContact) datas.push(im.ownerLastContact);
+    if(im.data_ultimo_contato) datas.push(im.data_ultimo_contato);
+  });
+  (DB.historicoFollowup || []).forEach(function(h){
+    if(h.proprietario_id === grupo.key) datas.push(h.data_contato);
+  });
+  datas = datas.filter(Boolean).sort(function(a,b){ return new Date(b) - new Date(a); });
+  return datas[0] || "";
+}
+function crmPropTodosVendidos(grupo){
+  var ims = grupo.imoveis || [];
+  return ims.length > 0 && ims.every(function(im){ return String(im.disp || "").toLowerCase() === "vendido"; });
+}
+function crmPropStatusPrazo(grupo){
+  var last = crmPropUltimoContato(grupo);
+  var dias = crmPropDiasDesde(last);
+  if(crmPropTodosVendidos(grupo)) return {tipo:"vendido", txt:"Vendido / sem alerta", dias:dias};
+  if(dias === null) return {tipo:"pendente", txt:"Sem contato registrado", dias:null};
+  if(dias >= 90) return {tipo:"pendente", txt:"Pendente há "+dias+" dias", dias:dias};
+  return {tipo:"ok", txt:"Em dia · "+dias+" dias", dias:dias};
+}
+function crmPropAgrupar(){
+  crmPropEnsureFU();
+  var map = {};
+  (DB.imoveis || []).forEach(function(im){
+    var key = crmPropOwnerId(im.prop, im.tel);
+    if(!map[key]) map[key] = {key:key,nome:im.prop || "Proprietário",tel:im.tel || "",imoveis:[],externo:false};
+    map[key].imoveis.push(im);
+  });
+  (DB.historicoFollowup || []).forEach(function(h){
+    var key = h.proprietario_id || crmPropOwnerId(h.proprietario, h.telefone);
+    if(!map[key]) map[key] = {key:key,nome:h.proprietario || "Proprietário externo",tel:h.telefone || "",imoveis:[],externo:true};
+    if(h.imovelExterno) map[key].externo = true;
+  });
+  return Object.keys(map).map(function(k){ return map[k]; }).sort(function(a,b){
+    var sa = crmPropStatusPrazo(a), sb = crmPropStatusPrazo(b);
+    if(sa.tipo !== sb.tipo) return sa.tipo === "pendente" ? -1 : 1;
+    return String(a.nome).localeCompare(String(b.nome), "pt-BR");
+  });
+}
+function crmPropFollowupPendentes(){
+  return crmPropAgrupar().filter(function(g){ return crmPropStatusPrazo(g).tipo === "pendente"; });
+}
+function crmPropPopularSelect(){
+  var sel = document.getElementById("pf-imovel");
+  if(!sel) return;
+  var atual = sel.value;
+  sel.innerHTML = '<option value="">Imóvel não cadastrado / contato externo</option>' +
+    (DB.imoveis || []).map(function(im){
+      return '<option value="'+crmEscAttr(im.codigo)+'">'+crmEscAttr(im.codigo+" - "+im.prop+" - "+im.tipo+" - "+im.bairro)+'</option>';
+    }).join("");
+  if(atual) sel.value = atual;
+}
+function pfSelecionarImovel(){
+  var cod = (document.getElementById("pf-imovel") || {}).value || "";
+  var im = (DB.imoveis || []).find(function(x){ return x.codigo === cod; });
+  if(!im) return;
+  document.getElementById("pf-prop").value = im.prop || "";
+  document.getElementById("pf-tel").value = im.tel || "";
+  document.getElementById("pf-status").value = ["Disponível","Alugado","Vendido"].indexOf(im.disp) >= 0 ? im.disp : "Disponível";
+  document.getElementById("pf-imovel-text").value = im.codigo+" - "+im.tipo+" - "+im.bairro+" - "+im.cidade;
+}
+function limparFollowupProprietario(){
+  ["pf-prop","pf-tel","pf-imovel-text","pf-obs"].forEach(function(id){ var el=document.getElementById(id); if(el) el.value=""; });
+  var sel=document.getElementById("pf-imovel"); if(sel) sel.value="";
+  var st=document.getElementById("pf-status"); if(st) st.value="Disponível";
+}
+function abrirFollowupProprietarioPorImovel(cod){
+  showTab("followupprop");
+  var sel=document.getElementById("pf-imovel"); if(sel) sel.value=cod;
+  pfSelecionarImovel();
+  var obs=document.getElementById("pf-obs"); if(obs) obs.focus();
+}
+function abrirFollowupProprietario(key){
+  showTab("followupprop");
+  var g = crmPropAgrupar().find(function(x){ return x.key === key; });
+  if(!g) return;
+  limparFollowupProprietario();
+  document.getElementById("pf-prop").value = g.nome || "";
+  document.getElementById("pf-tel").value = g.tel || "";
+  if(g.imoveis && g.imoveis[0]) {
+    document.getElementById("pf-imovel").value = g.imoveis[0].codigo;
+    pfSelecionarImovel();
+  }
+}
+function registrarFollowupProprietario(){
+  crmPropEnsureFU();
+  var cod = (document.getElementById("pf-imovel") || {}).value || "";
+  var im = (DB.imoveis || []).find(function(x){ return x.codigo === cod; });
+  var nome = im ? im.prop : (document.getElementById("pf-prop").value || "").trim();
+  var tel = im ? im.tel : (document.getElementById("pf-tel").value || "").trim();
+  var status = (document.getElementById("pf-status").value || "Disponível").trim();
+  var obs = (document.getElementById("pf-obs").value || "").trim();
+  var desc = im ? (im.codigo+" - "+im.tipo+" - "+im.bairro) : (document.getElementById("pf-imovel-text").value || "").trim();
+  if(!nome || !tel || !status){ toast("Preencha proprietário, telefone e status do imóvel.", true); return; }
+  var user = crmPropUsuarioAtual();
+  var ownerId = crmPropOwnerId(nome,tel);
+  var data = crmPropISOHoje();
+  var rec = {
+    id:"HF"+String(DB.hfSeq || 1).padStart(4,"0"),
+    proprietario_id:ownerId,
+    proprietario:nome,
+    telefone:tel,
+    usuario_id:user.id,
+    usuario_nome:user.nome,
+    data_contato:data,
+    observacoes:obs,
+    imovelCodigo:cod,
+    imovelDescricao:desc,
+    imovelExterno:!cod,
+    status:status
+  };
+  DB.hfSeq = (DB.hfSeq || 1) + 1;
+  DB.historicoFollowup.unshift(rec);
+  (DB.imoveis || []).forEach(function(item){
+    if(crmPropOwnerId(item.prop,item.tel) === ownerId){
+      item.ownerLastContact = data;
+      item.data_ultimo_contato = data;
+      item.ownerLastUser = user.nome;
+    }
+  });
+  if(im) im.disp = status;
+  salvarDB();
+  renderFollowupProprietarios();
+  renderBase();
+  renderDashboard();
+  toast("Contato com proprietário registrado.");
+}
+function crmPropCardHTML(g){
+  var st = crmPropStatusPrazo(g);
+  var last = crmPropUltimoContato(g);
+  var chips = (g.imoveis || []).slice(0,5).map(function(im){
+    return '<span class="owner-fu-chip">'+crmEscAttr(im.codigo)+' · '+crmEscAttr(im.disp || "")+'</span>';
+  }).join("") || '<span class="owner-fu-chip">Fora da base</span>';
+  return '<div class="owner-fu-card">'+
+    '<div class="owner-fu-head"><div><strong>'+crmEscAttr(g.nome || "Proprietário")+'</strong><small>'+crmEscAttr(g.tel || "sem telefone")+'</small></div><span class="owner-fu-badge '+st.tipo+'">'+crmEscAttr(st.txt)+'</span></div>'+
+    '<div class="owner-fu-imoveis">'+chips+'</div>'+
+    '<div class="owner-fu-meta">Último contato: '+crmEscAttr(crmPropFmtData(last))+'<br>Imóveis vinculados: '+(g.imoveis || []).length+(g.externo ? " · possui contato externo" : "")+'</div>'+
+    '<div class="owner-fu-actions"><button class="btn btn-primary" style="padding:7px 10px;font-size:.75rem" onclick="abrirFollowupProprietario(\''+g.key+'\')">Registrar contato</button></div>'+
+  '</div>';
+}
+function renderFollowupProprietarios(){
+  crmPropEnsureFU();
+  crmPropPopularSelect();
+  var grupos = crmPropAgrupar();
+  var pend = grupos.filter(function(g){ return crmPropStatusPrazo(g).tipo === "pendente"; });
+  var externos = grupos.filter(function(g){ return g.externo; });
+  var vendidos = grupos.filter(crmPropTodosVendidos);
+  var kpi = document.getElementById("prop-fu-kpis");
+  if(kpi) kpi.innerHTML =
+    '<div class="dash-card"><small>Proprietários</small><strong>'+grupos.length+'</strong><span>Total monitorado</span></div>'+
+    '<div class="dash-card"><small>Follow-up pendente</small><strong>'+pend.length+'</strong><span>90 dias ou sem contato</span></div>'+
+    '<div class="dash-card"><small>Fora da base</small><strong>'+externos.length+'</strong><span>Contatos externos registrados</span></div>'+
+    '<div class="dash-card"><small>Vendidos</small><strong>'+vendidos.length+'</strong><span>Sem alerta automático</span></div>';
+  var termo = ((document.getElementById("pf-busca") || {}).value || "").toLowerCase();
+  var filtro = ((document.getElementById("pf-filtro") || {}).value || "todos");
+  var lista = grupos.filter(function(g){
+    var st = crmPropStatusPrazo(g).tipo;
+    var txt = (g.nome+" "+g.tel+" "+(g.imoveis||[]).map(function(im){return im.codigo+" "+im.bairro+" "+im.tipo;}).join(" ")).toLowerCase();
+    if(termo && txt.indexOf(termo) < 0) return false;
+    if(filtro === "pendente") return st === "pendente";
+    if(filtro === "ok") return st === "ok";
+    if(filtro === "externo") return g.externo;
+    if(filtro === "vendido") return st === "vendido";
+    return true;
+  });
+  var el = document.getElementById("prop-fu-lista");
+  if(el) el.innerHTML = lista.length ? lista.map(crmPropCardHTML).join("") : '<div class="empty"><p>Nenhum proprietário encontrado para este filtro.</p></div>';
+  var hist = document.getElementById("prop-fu-historico");
+  if(hist) hist.innerHTML = (DB.historicoFollowup || []).slice(0,30).map(function(h){
+    return '<div class="owner-fu-history-item"><b>'+crmEscAttr(h.proprietario || "Proprietário")+' · '+crmEscAttr(h.status || "")+'</b>'+
+      '<small>'+crmEscAttr(crmPropFmtData(h.data_contato))+' · '+crmEscAttr(h.usuario_nome || "")+' · '+crmEscAttr(h.imovelCodigo || h.imovelDescricao || "imóvel externo")+'</small>'+
+      (h.observacoes ? '<div>'+crmEscAttr(h.observacoes)+'</div>' : '')+'</div>';
+  }).join("") || '<div class="empty"><p>Nenhum contato registrado ainda.</p></div>';
+}
+function crmPropRenderDashboard(){
+  var el = document.getElementById("dash-proprietarios-fu");
+  if(!el) return;
+  var pend = crmPropFollowupPendentes().slice(0,6);
+  el.innerHTML = pend.length ? pend.map(function(g){
+    var st = crmPropStatusPrazo(g);
+    return '<div class="dash-item"><div><b>'+crmEscAttr(g.nome || "Proprietário")+'</b><small>'+crmEscAttr(g.tel || "")+' · '+crmEscAttr(st.txt)+'</small></div><button class="btn btn-info" onclick="abrirFollowupProprietario(\''+g.key+'\')">Abrir</button></div>';
+  }).join("") : '<div class="empty" style="padding:18px 0">Nenhum proprietário pendente.</div>';
 }
 
 // ═══════════════════════════════════════════
@@ -4965,20 +5319,143 @@ function preencherQualificacaoModal(n){
   });
   atualizarSQLI();
 }
-function iaClassificarNegocio(n){
+function crmIANormalizarTexto(v){
+  var s = String(v == null ? "" : v).toLowerCase();
+  try { s = s.normalize("NFD").replace(/[\u0300-\u036f]/g, ""); } catch(e) {}
+  return s;
+}
+function crmIAClamp(v){ v = Number(v || 0); return Math.max(0, Math.min(100, Math.round(v))); }
+function crmIAAlertasCount(n){
+  var raw = String((n && n.sqliAlertas) || "").trim();
+  if(!raw) return 0;
+  return raw.split(";").map(function(x){ return x.trim(); }).filter(Boolean).length;
+}
+function crmIATemTexto(txt, palavras){
+  txt = crmIANormalizarTexto(txt);
+  return palavras.some(function(w){ return txt.indexOf(crmIANormalizarTexto(w)) >= 0; });
+}
+function crmIABaseScore(n){
   n = n || {};
   var score = _sqliNum(n.leadScore);
+  var soma = _sqliNum(n.sqliNecessidade) + _sqliNum(n.sqliFinanceiro) +
+             _sqliNum(n.sqliDecisao) + _sqliNum(n.sqliEngajamento) +
+             _sqliNum(n.sqliVisita) + _sqliNum(n.sqliCompatibilidade);
+  if(!score && soma) score = soma;
   if(!score && n.leadClass){
-    score = n.leadClass === "Muito Quente" ? 90 : (n.leadClass === "Quente" ? 60 : (n.leadClass === "Morno" ? 40 : 20));
+    var cls = crmIANormalizarTexto(n.leadClass);
+    score = cls.indexOf("muito quente") >= 0 ? 86 :
+            cls.indexOf("quente") >= 0 ? 62 :
+            cls.indexOf("morno") >= 0 ? 40 :
+            cls.indexOf("frio") >= 0 ? 20 : 25;
   }
-  var alertas = (n.sqliAlertas||"").trim() ? (n.sqliAlertas||"").split(";").filter(Boolean).length : 0;
-  var classe = n.leadClass || _sqliClass(score);
-  return {classe:classe, pontos:score, motivos:[score+" pontos SQLI", alertas+" sinal(is) de alerta"]};
+  if(!score) score = 25;
+
+  var aprovado = crmIANormalizarTexto(n.aprovado);
+  if(aprovado.indexOf("nao") >= 0) score -= 15;
+  else if(aprovado.indexOf("aprovado") >= 0) score += 10;
+  else if(aprovado.indexOf("analise") >= 0) score += 4;
+
+  var op = crmIANormalizarTexto(n.op || n.sqliOperacao);
+  if(op.indexOf("venda") >= 0) score += 4;
+  if(op.indexOf("locacao") >= 0) score += 2;
+
+  var etapa = crmIANormalizarTexto(n.etapa);
+  if(etapa.indexOf("fechado") >= 0 || etapa.indexOf("ganho") >= 0) score = Math.max(score, 85);
+  if(etapa.indexOf("proposta") >= 0) score += 14;
+  if(etapa.indexOf("negociacao") >= 0 || etapa.indexOf("contrato") >= 0) score += 12;
+  if(etapa.indexOf("visita") >= 0) score += 9;
+  if(etapa.indexOf("qualificacao") >= 0 || etapa.indexOf("em atendimento") >= 0) score += 4;
+  if(etapa.indexOf("perdido") >= 0) score -= 25;
+
+  var dias = _crmDiasAte(n.fu);
+  if(dias !== null){
+    if(dias < 0) score += 10;
+    else if(dias === 0) score += 8;
+    else if(dias <= 2) score += 4;
+  } else {
+    score -= 3;
+  }
+
+  if(Number(n.valor || 0) > 0) score += 2;
+  if(n.tipoImovel || n.sqliTipo) score += 2;
+  if(n.dorms || n.sqliRegiao || n.sqliFaixa) score += 2;
+
+  var alertas = crmIAAlertasCount(n);
+  if(alertas >= 3) score = Math.min(score - 12, 50);
+  else if(alertas > 0) score -= alertas * 3;
+
+  return crmIAClamp(score);
+}
+function crmIAAnaliseTexto(txt){
+  txt = crmIANormalizarTexto(txt);
+  var delta = 0, sinais = [], alertas = 0;
+  function hit(palavras, pontos, label, negativo){
+    if(crmIATemTexto(txt, palavras)){
+      delta += pontos;
+      sinais.push(label);
+      if(negativo) alertas++;
+    }
+  }
+  hit(["quero fechar","fechar hoje","fazer proposta","proposta","reservar","sinal","contrato","assinar","pode fazer"], 24, "sinal claro de fechamento", false);
+  hit(["visita","conhecer o imovel","posso ver","agendar","que horas","agenda"], 13, "aceita avancar para visita", false);
+  hit(["financiamento aprovado","credito aprovado","entrada","fgts","documentacao","renda","recursos disponiveis"], 15, "capacidade financeira indicada", false);
+  hit(["urgente","ate 30 dias","este mes","preciso mudar","mudar logo","mudanca"], 14, "urgencia real", false);
+  hit(["gostei","tenho interesse","me manda","envia","pode enviar","quero receber"], 8, "engajamento positivo", false);
+  hit(["so olhando","pesquisando","sem pressa","mais pra frente","futuramente","curiosidade"], -24, "pesquisa sem urgencia", true);
+  hit(["caro","abaixar","muito alto","fora do orcamento","fora do orçamento","nao cabe"], -12, "objecao de valor", true);
+  hit(["nao responde","sumiu","depois vejo","vou pensar","qualquer coisa aviso"], -12, "baixo engajamento", true);
+  return {delta:delta, sinais:sinais, alertas:alertas};
+}
+function crmIAPerfilPorScore(score){
+  if(score >= 76) return "Comprador/Inquilino real";
+  if(score >= 51) return "Lead qualificado";
+  if(score >= 31) return "Cliente potencial";
+  return "Curioso / pesquisa";
+}
+function crmIAAcaoPorScore(score,n,analise){
+  n = n || {}; analise = analise || {};
+  var op = crmIANormalizarTexto(n.op || n.sqliOperacao);
+  var aprovado = crmIANormalizarTexto(n.aprovado);
+  var etapa = crmIANormalizarTexto(n.etapa);
+  var dias = _crmDiasAte(n.fu);
+  if(crmIAAlertasCount(n) >= 3 || analise.alertas >= 2){
+    return "Fazer uma pergunta objetiva de qualificacao antes de gastar agenda: prazo real, faixa de valor e decisor.";
+  }
+  if(dias !== null && dias < 0){
+    return "Retomar contato hoje, registrar o retorno e definir a proxima acao com data.";
+  }
+  if(aprovado.indexOf("aprovado") >= 0 && aprovado.indexOf("nao") < 0 && op.indexOf("venda") >= 0){
+    return "Prioridade alta: lead aprovado e de venda. Validar documentacao, decisores e conduzir para visita/proposta.";
+  }
+  if(etapa.indexOf("visita") >= 0){
+    return "Fazer pos-visita: perguntar o que gostou, o que travou e o que falta para avancar.";
+  }
+  if(score >= 76) return "Atendimento prioritario hoje: ligar, confirmar decisores, proposta e fechamento.";
+  if(score >= 51) return "Agendar visita ou apresentar imovel compativel ainda hoje, com follow-up curto.";
+  if(score >= 31) return "Qualificar melhor prazo, orcamento e decisor; manter follow-up quinzenal.";
+  return "Manter nutricao mensal e evitar visita sem prazo, orcamento e decisor definidos.";
+}
+function crmIAAplicarResultado(n,r){
+  if(!n || !r) return r;
+  n.iaScore = r.pontos;
+  n.iaPerfil = r.perfil;
+  n.iaProximaAcao = r.acao;
+  n.iaSinais = (r.motivos || []).join(", ");
+  n.iaAnaliseData = new Date().toLocaleString("pt-BR");
+  return r;
+}
+function iaClassificarNegocio(n){
+  n = n || {};
+  var conversa = crmAnalisarConversaCliente(n.iaConversa || "", n);
+  var score = crmIAClamp(conversa.score);
+  var classe = _sqliClass(score);
+  var sinais = String(conversa.sinais || "").split(",").map(function(x){ return x.trim(); }).filter(Boolean);
+  if(!sinais.length) sinais = [score+" pontos consolidados"];
+  return {classe:classe, pontos:score, perfil:conversa.perfil, acao:conversa.acao, motivos:sinais};
 }
 function iaSugerirProximaAcao(n){
-  n = n || {};
-  var r = iaClassificarNegocio(n);
-  return _sqliAcao(r.classe, (n.sqliAlertas||"").trim() ? (n.sqliAlertas||"").split(";").filter(Boolean).length : 0);
+  var r = iaClassificarNegocio(n || {});
+  return r.acao || _sqliAcao(r.classe, crmIAAlertasCount(n));
 }
 function iaSugerirQualificacaoModal(){
   var r = atualizarSQLI();
@@ -5000,35 +5477,51 @@ function _crmEhVisitaAtiva(t){
 function renderAssistenteIA(){
   var resumo=_crmEl("ai-resumo"), lista=_crmEl("ai-prioridades");
   if(!resumo || !lista) return;
-  var ativos=(DB.negocios||[]).filter(function(n){return !n.fechado;});
-  var quentes=[], atrasados=[], visitasVistorias=[], semAcao=[];
+  var ativos=(DB.negocios||[]).filter(function(n){
+    var etapa = crmIANormalizarTexto(n && n.etapa);
+    return !n.fechado && etapa.indexOf("fechado") < 0 && etapa.indexOf("perdido") < 0;
+  });
+  var quentes=[], atrasados=[], visitasVistorias=[], semAcao=[], aprovadosVenda=[];
   ativos.forEach(function(n){
     var r=iaClassificarNegocio(n);
-    if(r.classe==="Quente" || r.classe==="Muito Quente") quentes.push(n);
+    n._iaTemp = r;
+    if(r.pontos >= 51) quentes.push(n);
     var dias=_crmDiasAte(n.fu);
     if(dias!==null && dias<0) atrasados.push(n);
     if(["visita","em vistoria"].indexOf((n.etapa||"").toLowerCase())>=0) visitasVistorias.push(n);
-    if(!n.proximaAcao) semAcao.push(n);
+    if(!n.proximaAcao && !n.fu) semAcao.push(n);
+    var ap = crmIANormalizarTexto(n.aprovado), op = crmIANormalizarTexto(n.op);
+    if(ap.indexOf("aprovado") >= 0 && ap.indexOf("nao") < 0 && op.indexOf("venda") >= 0) aprovadosVenda.push(n);
   });
   var visitas=(DB.tarefas||[]).filter(_crmEhVisitaAtiva);
-  function box(t,v,s){return '<div class="ai-priority-card"><span class="ai-pill">'+t+'</span><strong style="font-size:1.35rem">'+v+'</strong><small>'+s+'</small></div>';}
+  function box(t,v,s){return '<div class="ai-priority-card"><span class="ai-pill">'+crmEscAttr(t)+'</span><strong style="font-size:1.35rem">'+v+'</strong><small>'+crmEscAttr(s)+'</small></div>';}
   resumo.innerHTML =
-    box("Leads quentes",quentes.length,"prioridade maxima hoje")+
-    box("Follow-ups atrasados",atrasados.length,"nao deixar sem contato")+
-    box("Visitas/vistorias",visitasVistorias.length,"maior chance de fechamento")+
+    box("Leads quentes",quentes.length,"51 pontos ou mais na IA consolidada")+
+    box("Follow-ups atrasados",atrasados.length,"retomar contato hoje")+
+    box("Aprovados de venda",aprovadosVenda.length,"prioridade comercial")+
     box("Visitas agendadas",visitas.length,"cards puxados da agenda");
-  var prioridades = atrasados.concat(visitasVistorias).concat(quentes).concat(semAcao).filter(function(n,i,a){return a.findIndex(function(x){return x.id===n.id;})===i;}).slice(0,8);
+  function prioridade(n){
+    var r=n._iaTemp || iaClassificarNegocio(n), p=r.pontos;
+    var dias=_crmDiasAte(n.fu);
+    if(dias!==null && dias<0) p += 25;
+    var ap = crmIANormalizarTexto(n.aprovado), op = crmIANormalizarTexto(n.op), etapa = crmIANormalizarTexto(n.etapa);
+    if(ap.indexOf("aprovado") >= 0 && ap.indexOf("nao") < 0 && op.indexOf("venda") >= 0) p += 18;
+    if(etapa.indexOf("proposta") >= 0 || etapa.indexOf("negociacao") >= 0) p += 12;
+    if(!n.proximaAcao && !n.fu) p += 8;
+    return p;
+  }
+  var prioridades = ativos.slice().sort(function(a,b){ return prioridade(b)-prioridade(a); }).slice(0,10);
   if(!prioridades.length){ lista.innerHTML='<div class="empty"><p>Nenhuma prioridade critica agora. Mantenha a cadencia de follow-up.</p></div>'; return; }
   lista.innerHTML = prioridades.map(function(n){
-    var r=iaClassificarNegocio(n), dias=_crmDiasAte(n.fu);
+    var r=n._iaTemp || iaClassificarNegocio(n), dias=_crmDiasAte(n.fu);
     var st = dias===null ? "sem data" : (dias<0 ? Math.abs(dias)+"d atrasado" : (dias===0 ? "hoje" : "em "+dias+"d"));
-    return '<div class="ai-priority-card"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><strong>'+n.cliente+'</strong><span class="ai-pill">'+r.classe+'</span></div>'+
-      '<small>'+n.etapa+' - '+n.op+' - follow-up '+st+'</small>'+
-      '<div>'+iaSugerirProximaAcao(n)+'</div>'+
+    return '<div class="ai-priority-card"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><strong>'+crmEscAttr(n.cliente||"Lead")+'</strong><span class="ai-pill">'+crmEscAttr(r.classe)+' - '+r.pontos+' pts</span></div>'+
+      '<small>'+crmEscAttr(n.etapa||"CRM")+' - '+crmEscAttr(n.op||"")+' - follow-up '+crmEscAttr(st)+'</small>'+
+      '<div><strong>Proxima acao:</strong> '+crmEscAttr(r.acao)+'</div>'+
+      '<small>Sinais: '+crmEscAttr((r.motivos||[]).join(", "))+'</small>'+
       '<div class="ai-actions-row"><button class="btn btn-primary" onclick="abrirNegocio(\''+n.id+'\')">Abrir lead</button></div></div>';
   }).join("");
 }
-
 function renderVisitasAgendadas(){
   var el=_crmEl("visitas-agendadas");
   if(!el) return;
@@ -5358,29 +5851,19 @@ function crmEscAttr(v){
   return String(v == null ? "" : v).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 }
 function crmAnalisarConversaCliente(txt,n){
-  txt = String(txt||"").toLowerCase();
-  var score = 35, pontos = [];
-  function hit(words, pts, label){
-    if(words.some(function(w){ return txt.indexOf(w) >= 0; })){ score += pts; pontos.push(label); }
-  }
-  hit(["quero fechar","fechar hoje","fazer proposta","proposta","reservar","sinal","contrato"], 24, "sinal claro de fechamento");
-  hit(["visita","conhecer o imovel","posso ver","agendar"], 14, "aceita avancar para visita");
-  hit(["financiamento aprovado","credito aprovado","entrada","fgts","documentacao","renda"], 16, "capacidade financeira indicada");
-  hit(["urgente","ate 30 dias","este mes","preciso mudar","mudanca"], 14, "urgencia real");
-  hit(["gostei","interesse","me manda","envia"], 8, "engajamento positivo");
-  hit(["so olhando","só olhando","pesquisando","sem pressa","mais pra frente","futuramente"], -22, "pesquisa sem urgencia");
-  hit(["caro","abaixar","muito alto","fora do orçamento","fora do orcamento"], -10, "objeção de valor");
-  hit(["nao responde","sumiu","depois vejo","vou pensar"], -12, "baixo engajamento");
-  if(n && n.leadClass === "Muito Quente") score += 8;
-  if(n && n.leadClass === "Frio") score -= 8;
-  score = Math.max(0, Math.min(100, score));
-  var perfil = "Pesquisando";
-  var acao = "Manter nutricao e follow-up mensal com oportunidades objetivas.";
-  if(score >= 80){ perfil = "Pronto para fechar"; acao = "Contato prioritario hoje: trabalhar proposta, condicoes e fechamento."; }
-  else if(score >= 60){ perfil = "Interesse real"; acao = "Agendar visita ou apresentar imovel compativel ainda hoje."; }
-  else if(score >= 40){ perfil = "Potencial morno"; acao = "Fazer perguntas de qualificacao e definir proxima acao com data."; }
-  return {score:score, perfil:perfil, acao:acao, sinais:pontos.slice(0,3).join(", ") || "sem sinais fortes no texto"};
+  txt = String(txt || "");
+  var base = crmIABaseScore(n || {});
+  var analise = crmIAAnaliseTexto(txt);
+  var temTexto = txt.trim().length > 0;
+  var score = temTexto ? base + analise.delta : base;
+  if(analise.alertas >= 2) score = Math.min(score, 50);
+  score = crmIAClamp(score);
+  var perfil = crmIAPerfilPorScore(score);
+  var acao = crmIAAcaoPorScore(score, n || {}, analise);
+  var sinais = analise.sinais.length ? analise.sinais.slice(0,4).join(", ") : "analise baseada nos dados cadastrados do lead";
+  return {score:score, perfil:perfil, acao:acao, sinais:sinais};
 }
+
 function crmDiasAteData(iso){
   if(!iso) return null;
   var p = String(iso).split("-");
@@ -5600,7 +6083,8 @@ function crmAprovacaoBadge(n){
 function crmTermometroLeadBadge(n){
   var st = (n && n.leadClass) ? n.leadClass : "Morno";
   var cls = "lead-temp-morno";
-  if (st === "Quente") cls = "lead-temp-quente";
+  if (st === "Muito Quente") cls = "lead-temp-muito-quente";
+  else if (st === "Quente") cls = "lead-temp-quente";
   else if (st === "Frio") cls = "lead-temp-frio";
   return '<span class="lead-temp-badge '+cls+'" title="Termometro do lead"><span class="lead-temp-dot"></span>'+st+'</span>';
 }
@@ -6739,7 +7223,17 @@ function salvarNegocio() {
   }
 
   var qualFields = coletarQualificacaoModal();
-  if (!qualFields.proximaAcao) qualFields.proximaAcao = iaSugerirProximaAcao(Object.assign({}, qualFields, {op:req.op, etapa:g("n-etapa"), fu:g("n-fu")||null}));
+  var iaPreview = iaClassificarNegocio(Object.assign({}, negAtual || {}, qualFields, {
+    cliente:req.cliente, tel:req.tel, imovel:req.imovel, valor:val, op:req.op,
+    etapa:etapaSelecionada, tipoImovel:g("n-tipo-imovel"), dorms:g("n-dorms"),
+    fu:g("n-fu")||null, iaConversa:(negAtual && negAtual.iaConversa) || ""
+  }));
+  qualFields.iaScore = iaPreview.pontos;
+  qualFields.iaPerfil = iaPreview.perfil;
+  qualFields.iaProximaAcao = iaPreview.acao;
+  qualFields.iaSinais = (iaPreview.motivos || []).join(", ");
+  qualFields.iaAnaliseData = new Date().toLocaleString("pt-BR");
+  qualFields.proximaAcao = iaPreview.acao;
   crmSincronizarContatoNegocio(req.cliente, req.tel, req.op, "Negócio: " + (req.imovel || ""));
 
   if (editNegId) {
@@ -8514,6 +9008,7 @@ function confirmarRestore() {
   fecharRestore();
   renderBase(); renderStats(); filtrar();
   renderCRM(); renderRelatorios(); renderContatos(); renderAgenda();
+  if (typeof renderFollowupProprietarios === "function") renderFollowupProprietarios();
   try { renderFU(); crmFollowupRenderizarAbaAtiva(); } catch(e) {}
   toast("📂 Restauração concluída!");
 }
