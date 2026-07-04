@@ -27,6 +27,21 @@ header p{color:#B3D1F0;font-size:.82rem}
 .tab{padding:12px 18px;cursor:pointer;color:#B3D1F0;font-weight:600;font-size:.88rem;border-bottom:3px solid transparent;transition:.2s;user-select:none;white-space:nowrap}
 .tab:hover{color:#fff}
 .tab.active{color:#fff;border-bottom-color:#60B4FF}
+
+/* MENU AGRUPADO COM DROPDOWN */
+.tabs{overflow:visible;flex-wrap:wrap;align-items:stretch}
+.menu-module{position:relative;display:flex;align-items:stretch}
+.menu-trigger{font-family:inherit;border:none;background:transparent;color:#B3D1F0;font-weight:700;font-size:.88rem;padding:12px 18px;border-bottom:3px solid transparent;cursor:pointer;white-space:nowrap;transition:.2s}
+.menu-trigger:after{content:" ▾";font-size:.72rem;opacity:.85}
+.menu-trigger:hover,.menu-module.open>.menu-trigger,.menu-module.active>.menu-trigger{color:#fff}
+.menu-module.active>.menu-trigger{border-bottom-color:#60B4FF}
+.menu-dropdown{display:none;position:absolute;top:100%;left:0;min-width:245px;background:rgba(255,255,255,.96);border:1px solid rgba(67,66,71,.16);border-radius:0 0 12px 12px;box-shadow:0 18px 42px rgba(15,23,42,.18);padding:7px;z-index:1000}
+.menu-module.open>.menu-dropdown,.menu-module:hover>.menu-dropdown{display:grid;gap:4px}
+.menu-dropdown .tab{display:block;color:#434247;border-bottom:none;border-radius:8px;padding:10px 12px;font-size:.82rem}
+.menu-dropdown .tab:hover{background:#F1F5F9;color:#1E293B}
+.menu-dropdown .tab.active{background:#E8E7EA;color:#29282C;border-bottom:none}
+@media (max-width:780px){.menu-trigger{padding:11px 14px;font-size:.82rem}.menu-dropdown{position:absolute;left:0;right:auto;top:100%;min-width:220px;max-width:calc(100vw - 24px)}.menu-module{position:relative}}
+
 .panel{display:none;padding:28px;max-width:1180px;margin:0 auto}
 .panel.active{display:block}
 .card{background:var(--branco);border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.08);overflow:hidden;margin-bottom:22px}
@@ -1001,20 +1016,38 @@ body.auth-locked #auth-screen{display:flex}
 </header>
 
 <div class="tabs" id="nav-tabs">
-  <div class="tab active" onclick="showTab('dashboard')">📈 Dashboard</div>
-  <div class="tab" onclick="showTab('cadastro')">📋 Cadastrar</div>
-  <div class="tab" onclick="showTab('base')">🗄️ Base de Dados</div>
-  <div class="tab" onclick="showTab('consultas')">🔍 Consultas</div>
-  <div class="tab" onclick="showTab('crm')">💼 CRM</div>
-  <div class="tab" onclick="showTab('relatorios')">📊 Relatórios</div>
-  <div class="tab" onclick="showTab('followup')">⏰ Follow-up</div>
-  <div class="tab" onclick="showTab('followupprop')">🏠 Follow-up Proprietários</div>
-  <div class="tab" onclick="showTab('assistente')">✨ Assistente IA</div>
-  <div class="tab" onclick="showTab('redes')">📣 Redes Sociais</div>
-  <div class="tab" onclick="showTab('contatos')">👥 Contatos</div>
-  <div class="tab" onclick="showTab('agenda')">📅 Agenda</div>
-  <div class="tab" onclick="showTab('config')">⚙ Configurações</div>
-  <div class="tab" id="nav-admin-tab" onclick="showTab('admin')" style="display:none">⚙ Administração</div>
+  <div class="menu-module" id="menu-cadastro-imoveis" data-module-tabs="cadastro,base,consultas">
+    <button type="button" class="menu-trigger" onclick="toggleMenuGrupo(event,'menu-cadastro-imoveis')">🏢 Cadastro de Imóveis</button>
+    <div class="menu-dropdown">
+      <div class="tab" data-tab-id="cadastro" onclick="showTab('cadastro')">📋 Cadastrar</div>
+      <div class="tab" data-tab-id="base" onclick="showTab('base')">🗄️ Base de Dados</div>
+      <div class="tab" data-tab-id="consultas" onclick="showTab('consultas')">🔍 Consultas</div>
+    </div>
+  </div>
+
+  <div class="menu-module" id="menu-relacionamento" data-module-tabs="crm,contatos,assistente,agenda">
+    <button type="button" class="menu-trigger" onclick="toggleMenuGrupo(event,'menu-relacionamento')">🤝 Relacionamento</button>
+    <div class="menu-dropdown">
+      <div class="tab" data-tab-id="crm" onclick="showTab('crm')">💼 CRM</div>
+      <div class="tab" data-tab-id="contatos" onclick="showTab('contatos')">👥 Contatos</div>
+      <div class="tab" data-tab-id="assistente" onclick="showTab('assistente')">✨ Assistente de IA</div>
+      <div class="tab" data-tab-id="agenda" onclick="showTab('agenda')">📅 Agenda</div>
+    </div>
+  </div>
+
+  <div class="menu-module active" id="menu-gestao-marketing" data-module-tabs="dashboard,relatorios,followup,followupprop,redes">
+    <button type="button" class="menu-trigger" onclick="toggleMenuGrupo(event,'menu-gestao-marketing')">📊 Gestão & Marketing</button>
+    <div class="menu-dropdown">
+      <div class="tab active" data-tab-id="dashboard" onclick="showTab('dashboard')">📈 Dashboard</div>
+      <div class="tab" data-tab-id="relatorios" onclick="showTab('relatorios')">📊 Relatórios</div>
+      <div class="tab" data-tab-id="followup" onclick="showTab('followup')">⏰ Follow-up (Clientes)</div>
+      <div class="tab" data-tab-id="followupprop" onclick="showTab('followupprop')">🏠 Follow-up (Proprietários)</div>
+      <div class="tab" data-tab-id="redes" onclick="showTab('redes')">📣 Marketing Redes Sociais</div>
+    </div>
+  </div>
+
+  <div class="tab" data-tab-id="config" onclick="showTab('config')">⚙ Configurações</div>
+  <div class="tab" data-tab-id="admin" id="nav-admin-tab" onclick="showTab('admin')" style="display:none">⚙ Administração</div>
 </div>
 
 <!-- ═══════════ DASHBOARD ═══════════ -->
@@ -4715,10 +4748,30 @@ function renderDashboard(){
   if (typeof crmPropRenderDashboard === "function") crmPropRenderDashboard();
 }
 
+function toggleMenuGrupo(ev,id) {
+  if (ev) ev.stopPropagation();
+  var alvo = document.getElementById(id);
+  document.querySelectorAll(".menu-module").forEach(function(m){ if(m!==alvo) m.classList.remove("open"); });
+  if (alvo) alvo.classList.toggle("open");
+}
+document.addEventListener("click", function(ev){
+  if (!ev.target || !ev.target.closest || !ev.target.closest(".menu-module")) {
+    document.querySelectorAll(".menu-module").forEach(function(m){ m.classList.remove("open"); });
+  }
+});
+document.addEventListener("keydown", function(ev){
+  if (ev.key === "Escape") document.querySelectorAll(".menu-module").forEach(function(m){ m.classList.remove("open"); });
+});
+
 function showTab(id) {
   organizarCRMRelatorios();
-  document.querySelectorAll(".tab").forEach(function(el, i) {
-    el.classList.toggle("active", TABS[i] === id);
+  document.querySelectorAll(".tab").forEach(function(el) {
+    el.classList.toggle("active", (el.getAttribute("data-tab-id") || "") === id);
+  });
+  document.querySelectorAll(".menu-module").forEach(function(mod) {
+    var tabs = (mod.getAttribute("data-module-tabs") || "").split(",");
+    mod.classList.toggle("active", tabs.indexOf(id) >= 0);
+    mod.classList.remove("open");
   });
   document.querySelectorAll(".panel").forEach(function(p) { p.classList.remove("active"); });
   var panel = document.getElementById("tab-" + id);
@@ -11609,6 +11662,7 @@ try {
   if (typeof crmFollowupReativar === "function") window.crmFollowupReativar = crmFollowupReativar;
   if (typeof crmFollowupEnviarManual === "function") window.crmFollowupEnviarManual = crmFollowupEnviarManual;
   if (typeof crmFollowupAbrirManual === "function") window.crmFollowupAbrirManual = crmFollowupAbrirManual;
+  if (typeof toggleMenuGrupo === "function") window.toggleMenuGrupo = toggleMenuGrupo;
   if (typeof crmFollowupDestacarCard === "function") window.crmFollowupDestacarCard = crmFollowupDestacarCard;
   if (typeof crmFollowupLimparBusca === "function") window.crmFollowupLimparBusca = crmFollowupLimparBusca;
   if (typeof renderFollowupAuto === "function") window.renderFollowupAuto = renderFollowupAuto;
