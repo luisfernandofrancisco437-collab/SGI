@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🏠 Sistema de Imóveis · v2026.08.29.4</title>
-<meta name="application-version" content="2026.08.29.4">
+<title>🏠 Sistema de Imóveis · v2026.09.03.1</title>
+<meta name="application-version" content="2026.09.03.1">
 <meta name="last-modified" content="2026-08-27">
 <link rel="icon" type="image/png" href="assets/crm-icone.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1207,7 +1207,7 @@ body.auth-locked #auth-screen{display:flex}
         <img src="assets/crm-icone.png" alt="CRM Imóveis" width="72" height="72" decoding="async" onerror="crmImagemFalhou(this,'logo')">
         <h1>CRM Imóveis</h1>
         <p>Gestão imobiliária, atendimento, captação, comissões e relacionamento em um único sistema.</p>
-        <span class="auth-version" title="Última alteração publicada em 29/08/2026">Versão 2026.08.29.4 · Atualizado em 29/08/2026</span>
+        <span class="auth-version" title="Última alteração publicada em 03/09/2026">Versão 2026.09.03.1 · Atualizado em 03/09/2026</span>
       </div>
       <small>Acesso individual e dados separados por usuário.</small>
     </section>
@@ -1300,7 +1300,7 @@ body.auth-locked #auth-screen{display:flex}
   <div class="header-title">
     <h1>Sistema de Gerenciamento de Imóveis</h1>
     <p>Fernando · Consultor Imobiliário · CRM · Relatórios</p>
-    <span id="system-version" class="system-version-badge" title="Data da última alteração do sistema">Versão 2026.08.29.4 · 29/08/2026</span>
+    <span id="system-version" class="system-version-badge" title="Data da última alteração do sistema">Versão 2026.09.03.1 · 03/09/2026</span>
   </div>
   <div class="backup-bar">
     <button class="btn-backup" onclick="gerarBackup()" title="Salvar todos os dados em arquivo JSON">💾 Backup</button>
@@ -17319,25 +17319,70 @@ window.CRM_SITE_SYNC_CONFIG={"url":"https://oyhpfygvvmetferzhzgt.supabase.co","k
 (function(){
   "use strict";
   var timer = null;
+  var sincronizacaoEmAndamento = null;
+  var CHAVE_PENDENTE = "crm_catalogo_sincronizacao_pendente";
+  var CHAVE_ULTIMO_ERRO = "crm_catalogo_ultima_falha";
+  var CHAVE_ULTIMO_SUCESSO = "crm_catalogo_ultima_sincronizacao";
+  var LIMITE_FOTO = 125000;
+  var LIMITE_TOTAL_FOTOS = 3900000;
+  var MAXIMO_FOTOS_POR_IMOVEL = 4;
+
+  function armazenar(chave, valor){
+    try {
+      if (valor == null) localStorage.removeItem(chave);
+      else localStorage.setItem(chave, valor);
+    } catch (_erro) {}
+  }
+  function marcarPendente(erro){
+    armazenar(CHAVE_PENDENTE, "1");
+    if (erro) armazenar(CHAVE_ULTIMO_ERRO, String(erro).slice(0, 500));
+  }
+  function concluirSincronizacao(){
+    armazenar(CHAVE_PENDENTE, null);
+    armazenar(CHAVE_ULTIMO_ERRO, null);
+    armazenar(CHAVE_ULTIMO_SUCESSO, new Date().toISOString());
+  }
+  function normalizarTexto(valor){
+    return String(valor == null ? "" : valor).normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+  }
   function numero(valor){
     var texto = String(valor == null ? "" : valor).trim();
     if (/^-?\d+(\.\d+)?$/.test(texto)) return Number(texto) || 0;
     var n = Number(texto.replace(/[^0-9,.-]/g, "").replace(/\./g, "").replace(",", "."));
     return isFinite(n) ? n : 0;
   }
+  function imovelPublicavel(imovel){
+    var status = normalizarTexto(imovel && (imovel.disp || imovel.disponibilidade));
+    return status === "disponivel" || status === "em negociacao";
+  }
+  function normalizarFonteFotoCatalogo(foto){
+    var valor = foto;
+    if (foto && typeof foto === "object") valor = foto.url || foto.src || foto.dataUrl || foto.dataURL || foto.base64 || foto.data || "";
+    if (typeof valor !== "string") return "";
+    valor = valor.trim();
+    if (/^(data:image\/|https?:\/\/)/i.test(valor)) return valor;
+    var base64 = valor.replace(/\s/g, "");
+    if (base64.length > 1000 && /^[A-Za-z0-9+/=]+$/.test(base64)) {
+      var tipo = String((foto && typeof foto === "object" && (foto.type || foto.mimeType)) || (base64.indexOf("iVBOR") === 0 ? "image/png" : "image/jpeg"));
+      if (!/^image\//i.test(tipo)) tipo = "image/jpeg";
+      return "data:" + tipo + ";base64," + base64;
+    }
+    return "";
+  }
   function compactarFotoCatalogo(foto){
-    if (typeof foto !== "string" || !/^(data:image\/|https?:\/\/)/i.test(foto)) return Promise.resolve("");
-    if (!/^data:image\//i.test(foto) || foto.length <= 650000) return Promise.resolve(foto);
+    foto = normalizarFonteFotoCatalogo(foto);
+    if (!foto) return Promise.resolve("");
+    if (!/^data:image\//i.test(foto) || foto.length <= LIMITE_FOTO) return Promise.resolve(foto);
     return new Promise(function(resolve){
       var imagem = new Image();
       imagem.onerror = function(){ resolve(""); };
       imagem.onload = function(){
         try {
-          var escala = Math.min(1, 1280 / Math.max(imagem.naturalWidth || 1, imagem.naturalHeight || 1));
+          var escala = Math.min(1, 1200 / Math.max(imagem.naturalWidth || 1, imagem.naturalHeight || 1));
           var largura = Math.max(1, Math.round((imagem.naturalWidth || 1) * escala));
           var altura = Math.max(1, Math.round((imagem.naturalHeight || 1) * escala));
           var resultado = "", qualidade = .76;
-          for (var tentativa = 0; tentativa < 5; tentativa++) {
+          for (var tentativa = 0; tentativa < 8; tentativa++) {
             var canvas = document.createElement("canvas");
             canvas.width = largura; canvas.height = altura;
             var ctx = canvas.getContext("2d", { alpha:false });
@@ -17345,12 +17390,12 @@ window.CRM_SITE_SYNC_CONFIG={"url":"https://oyhpfygvvmetferzhzgt.supabase.co","k
             ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
             ctx.drawImage(imagem, 0, 0, largura, altura);
             resultado = canvas.toDataURL("image/jpeg", qualidade);
-            if (resultado.length <= 650000) break;
-            largura = Math.max(640, Math.round(largura * .82));
-            altura = Math.max(480, Math.round(altura * .82));
-            qualidade = Math.max(.52, qualidade - .07);
+            if (resultado.length <= LIMITE_FOTO) break;
+            largura = Math.max(520, Math.round(largura * .86));
+            altura = Math.max(390, Math.round(altura * .86));
+            qualidade = Math.max(.48, qualidade - .07);
           }
-          resolve(resultado.length <= 650000 ? resultado : "");
+          resolve(resultado.length <= LIMITE_FOTO ? resultado : "");
         } catch (_erro) { resolve(""); }
       };
       imagem.src = foto;
@@ -17358,17 +17403,26 @@ window.CRM_SITE_SYNC_CONFIG={"url":"https://oyhpfygvvmetferzhzgt.supabase.co","k
   }
   async function catalogo(){
     var db = window.DB || {};
-    var limiteFotos = 14000000;
+    var limiteFotos = LIMITE_TOTAL_FOTOS;
     var fotosOmitidas = 0;
-    var itens = (db.imoveis || []).filter(function(im){ return im && (im.disp === "Disponível" || im.disp === "Em negociação"); }).map(function(im){
-      var dupla = im.op === "Locação e Venda" || im.op === "Locação ou Venda";
+    var itens = (db.imoveis || []).filter(imovelPublicavel).map(function(im){
+      var operacaoNormalizada = normalizarTexto(im.op);
+      var dupla = operacaoNormalizada === "locacao e venda" || operacaoNormalizada === "locacao ou venda";
       var descricao = String(im.obs || "");
       if (dupla) descricao = "Disponível para locação por R$ " + numero(im.valor).toLocaleString("pt-BR") + "/mês e venda por R$ " + numero(im.valorVenda).toLocaleString("pt-BR") + ". " + descricao;
-      return { codigo:String(im.codigo || "").trim(), titulo:String(im.tipo || "Imóvel") + (im.cond ? " · " + im.cond : ""), operacao:im.op === "Locação" ? "Locação" : "Venda", tipo:String(im.tipo || ""), cidade:String(im.cidade || ""), bairro:String(im.bairro || ""), valor:numero((im.op === "Venda" || dupla) && im.valorVenda ? im.valorVenda : im.valor), dormitorios:numero(im.quartos), vagas:numero(im.vagas), area:numero(im.area), descricao:descricao, fotos:[], _fontesFotos:(Array.isArray(im.fotos) ? im.fotos : []).slice(0, 12) };
+      return {
+        codigo:String(im.codigo || "").trim(),
+        titulo:String(im.tipo || "Imóvel") + (im.cond ? " · " + im.cond : ""),
+        operacao:operacaoNormalizada === "locacao" ? "Locação" : "Venda",
+        tipo:String(im.tipo || ""), cidade:String(im.cidade || ""), bairro:String(im.bairro || ""),
+        valor:numero((operacaoNormalizada === "venda" || dupla) && im.valorVenda ? im.valorVenda : im.valor),
+        dormitorios:numero(im.quartos), vagas:numero(im.vagas), area:numero(im.area), descricao:descricao, fotos:[],
+        _fontesFotos:(Array.isArray(im.fotos) ? im.fotos : []).map(normalizarFonteFotoCatalogo).filter(Boolean)
+      };
     }).filter(function(im){ return !!im.codigo; });
-    // Primeiro envia a capa de cada imóvel; depois completa as galerias em rodadas.
-    // Assim um imóvel no início da lista nunca consome o espaço dos demais.
-    for (var indice = 0; indice < 6 && limiteFotos > 0; indice++) {
+    // Envia primeiro a capa de todos os imóveis e completa as galerias em rodadas.
+    // O teto reduzido evita que novas fotos ultrapassem o limite da API e bloqueiem todo o catálogo.
+    for (var indice = 0; indice < MAXIMO_FOTOS_POR_IMOVEL && limiteFotos > 0; indice++) {
       for (var posicao = 0; posicao < itens.length && limiteFotos > 0; posicao++) {
         var fonte = itens[posicao]._fontesFotos[indice];
         if (!fonte) continue;
@@ -17385,26 +17439,81 @@ window.CRM_SITE_SYNC_CONFIG={"url":"https://oyhpfygvvmetferzhzgt.supabase.co","k
     itens.totalCadastrados = (db.imoveis || []).length;
     return itens;
   }
-  window.sincronizarSitePublico = async function(silencioso){
-    var cfg = window.CRM_SITE_SYNC_CONFIG;
-    if (!cfg || !cfg.url || !cfg.key || !cfg.token) { if(!silencioso && typeof toast === "function") toast("⚠️ Integração do site não configurada.", true); return false; }
-    var imoveis = await catalogo();
+  async function fotosJaPublicadas(cfg){
     try {
+      var resposta = await fetch(cfg.url + "/rest/v1/imoveis_publicos?select=codigo,fotos", { headers:{"apikey":cfg.key, "Authorization":"Bearer " + cfg.key} });
+      if (!resposta.ok) return {};
+      var registros = await resposta.json();
+      return (Array.isArray(registros) ? registros : []).reduce(function(mapa, item){
+        if (item && item.codigo && Array.isArray(item.fotos) && item.fotos.length) mapa[String(item.codigo)] = item.fotos.filter(function(foto){ return typeof foto === "string" && /^(data:image\/|https?:\/\/)/i.test(foto); });
+        return mapa;
+      }, {});
+    } catch (_erro) { return {}; }
+  }
+  async function enviarCatalogo(cfg, imoveis){
+    var resposta = await fetch(cfg.url + "/rest/v1/rpc/sincronizar_catalogo", {
+      method:"POST",
+      headers:{"Content-Type":"application/json", "apikey":cfg.key, "Authorization":"Bearer " + cfg.key},
+      body:JSON.stringify({payload:imoveis, token:cfg.token})
+    });
+    var texto = await resposta.text();
+    var retorno = {};
+    try { retorno = texto ? JSON.parse(texto) : {}; } catch (_erro) { retorno = {}; }
+    if (!resposta.ok || retorno.ok === false) throw new Error(retorno.message || retorno.hint || texto.slice(0, 240) || "Falha HTTP " + resposta.status);
+    return retorno;
+  }
+  async function executarSincronizacao(silencioso){
+    var cfg = window.CRM_SITE_SYNC_CONFIG;
+    if (!cfg || !cfg.url || !cfg.key || !cfg.token) {
+      marcarPendente("Integração do site não configurada.");
+      if(!silencioso && typeof toast === "function") toast("⚠️ Integração do site não configurada.", true);
+      return false;
+    }
+    marcarPendente("");
+    try {
+      var imoveis = await catalogo();
       if (!imoveis.length) throw new Error(imoveis.totalCadastrados ? "Nenhum imóvel está com status Disponível ou Em negociação e com código preenchido." : "Nenhum imóvel foi cadastrado no CRM.");
+      var anteriores = await fotosJaPublicadas(cfg);
+      imoveis.forEach(function(imovel){
+        if (!imovel.fotos.length && Array.isArray(anteriores[imovel.codigo]) && anteriores[imovel.codigo].length) imovel.fotos = anteriores[imovel.codigo].slice(0, MAXIMO_FOTOS_POR_IMOVEL);
+      });
       if(!silencioso && typeof toast === "function") toast("🌐 Atualizando o catálogo público...");
-      var resposta = await fetch(cfg.url + "/rest/v1/rpc/sincronizar_catalogo", { method:"POST", headers:{"Content-Type":"application/json", "apikey":cfg.key, "Authorization":"Bearer " + cfg.key}, body:JSON.stringify({payload:imoveis, token:cfg.token}) });
-      var retorno = await resposta.json().catch(function(){ return {}; });
-      if(!resposta.ok || retorno.ok === false) throw new Error(retorno.message || retorno.hint || "Falha HTTP " + resposta.status);
-      localStorage.setItem("crm_catalogo_ultima_sincronizacao", new Date().toISOString());
-      if(!silencioso && typeof toast === "function") toast("✅ Site atualizado com " + imoveis.length + " imóvel(is). As fotos foram otimizadas e distribuídas entre os imóveis." + (imoveis.fotosOmitidas ? " Fotos excedentes permaneceram preservadas no CRM." : ""));
+      try {
+        await enviarCatalogo(cfg, imoveis);
+      } catch (erroCompleto) {
+        // Uma segunda tentativa com apenas a capa garante o cadastro mesmo em redes com limite menor.
+        var catalogoLeve = imoveis.map(function(imovel){
+          var copia = Object.assign({}, imovel);
+          copia.fotos = imovel.fotos.slice(0, 1);
+          return copia;
+        });
+        await enviarCatalogo(cfg, catalogoLeve).catch(function(){ throw erroCompleto; });
+      }
+      concluirSincronizacao();
+      if(!silencioso && typeof toast === "function") toast("✅ Site atualizado com " + imoveis.length + " imóvel(is)." + (imoveis.fotosOmitidas ? " As fotos excedentes continuam preservadas no CRM." : ""));
       return true;
     } catch(erro) {
       console.error("Sincronização do site:", erro);
-      if(!silencioso && typeof toast === "function") toast("⚠️ Site não atualizado: " + String(erro && erro.message || erro).slice(0, 180), true);
+      marcarPendente(erro && erro.message || erro);
+      if(!silencioso && typeof toast === "function") toast("⚠️ Site não atualizado. O envio será tentado novamente: " + String(erro && erro.message || erro).slice(0, 160), true);
       return false;
     }
+  }
+  window.sincronizarSitePublico = function(silencioso){
+    if (sincronizacaoEmAndamento) return sincronizacaoEmAndamento;
+    sincronizacaoEmAndamento = executarSincronizacao(!!silencioso).finally(function(){ sincronizacaoEmAndamento = null; });
+    return sincronizacaoEmAndamento;
   };
-  window.crmAgendarSincronizacaoSite = function(){ clearTimeout(timer); timer = setTimeout(function(){ window.sincronizarSitePublico(true); }, 1800); };
+  window.crmAgendarSincronizacaoSite = function(silencioso){
+    marcarPendente("");
+    clearTimeout(timer);
+    timer = setTimeout(function(){ window.sincronizarSitePublico(!!silencioso); }, 1800);
+  };
+  function repetirSePendente(){
+    try { if (localStorage.getItem(CHAVE_PENDENTE) === "1") window.crmAgendarSincronizacaoSite(true); } catch (_erro) {}
+  }
+  window.addEventListener("online", repetirSePendente);
+  setTimeout(repetirSePendente, 4000);
 })();
 
 </script>
