@@ -1589,7 +1589,7 @@ body.auth-locked #auth-screen{display:flex}
   <div class="card">
     <div class="card-header">🏘️ Catálogo de Imóveis do CRM</div>
     <div class="card-body" style="padding:0">
-      <div class="base-catalog-toolbar"><input id="base-cat-busca" type="search" placeholder="Buscar por código, proprietário, telefone, bairro ou cidade" oninput="renderBase()"><select id="base-cat-op" onchange="renderBase()"><option value="">Venda e Locação</option><option value="Venda">Venda</option><option value="Locação">Locação</option></select><select id="base-cat-status" onchange="renderBase()"><option value="">Todos os status</option><option>Disponível</option><option>Em negociação</option><option>Vendido</option><option>Alugado</option><option>Inativo</option></select></div>
+      <div class="base-catalog-toolbar"><input id="base-cat-busca" type="search" placeholder="Buscar por código, proprietário, telefone, bairro ou cidade" oninput="agendarRenderBase()"><select id="base-cat-op" onchange="renderBase()"><option value="">Venda e Locação</option><option value="Venda">Venda</option><option value="Locação">Locação</option></select><select id="base-cat-status" onchange="renderBase()"><option value="">Todos os status</option><option>Disponível</option><option>Em negociação</option><option>Vendido</option><option>Alugado</option><option>Inativo</option></select></div>
       <div id="base-catalog-summary" class="base-catalog-summary"></div>
       <div id="base-catalog-grid" class="base-catalog-grid"></div>
       <div id="empty-base" class="empty" style="display:none"><div class="ico2">🏚️</div><p>Nenhum imóvel cadastrado.</p></div>
@@ -2726,7 +2726,7 @@ body.auth-locked #auth-screen{display:flex}
   <div class="card">
     <div class="card-body" style="padding:14px 20px">
       <div class="filtros-grid">
-        <div><label>Buscar</label><input id="cont-q" type="text" placeholder="Nome, telefone, e-mail, código do imóvel ou TAG..." oninput="renderContatos()" style="background:#fff"></div>
+        <div><label>Buscar</label><input id="cont-q" type="text" placeholder="Nome, telefone, e-mail, código do imóvel ou TAG..." oninput="agendarRenderContatos()" style="background:#fff"></div>
         <div><label>Papel</label>
           <select id="cont-papel" onchange="renderContatos()" style="background:#fff">
             <option value="">Todos</option>
@@ -5098,16 +5098,14 @@ function _renderTudoAposRecuperarDB() {
   try { crmComissaoAplicarOnboarding(); } catch(e) {}
   try { if (typeof crmFollowupNormalizarSistema === "function") crmFollowupNormalizarSistema(); } catch(e) {}
   try { atualizarCod(); } catch(e) {}
-  try { renderBase(); } catch(e1) {}
-  try { renderStats(); } catch(e2) {}
-  try { filtrar(); } catch(e3) {}
-  try { renderCRM(); } catch(e4) {}
-  try { renderRelatorios(); } catch(e5) {}
-  try { renderCaptacoesExternas(); } catch(e6) {}
-  try { renderAgenda(); } catch(e7) {}
-  try { renderRedesSociais(); } catch(e8) {}
-  try { renderFU(); } catch(e9) {}
-  try { crmFollowupRenderizarAbaAtiva(); } catch(e10) {}
+  // A base pode chegar depois do primeiro desenho via IndexedDB. Atualiza apenas
+  // a tela que o usuário está vendo; as demais são montadas ao abrir a respectiva aba.
+  try {
+    var painelAtivo = document.querySelector(".panel.active");
+    var abaAtiva = painelAtivo ? String(painelAtivo.id || "").replace(/^tab-/, "") : "dashboard";
+    if (typeof showTab === "function" && abaAtiva) showTab(abaAtiva);
+    else if (typeof renderDashboard === "function") renderDashboard();
+  } catch(eRender) { console.warn("Falha ao atualizar a tela ativa após recuperar a base:", eRender); }
 }
 
 function _recuperarDBIndexedDB(callback) {
@@ -7348,6 +7346,12 @@ function renderBase() {
 //  CONSULTAS — VALOR MÉDIO POR TIPO
 // ═══════════════════════════════════════════
 var _medFiltro = 'todos'; // 'todos' | 'Venda' | 'Locação'
+
+var _baseRenderTimer = null;
+function agendarRenderBase() {
+  clearTimeout(_baseRenderTimer);
+  _baseRenderTimer = setTimeout(renderBase, 180);
+}
 
 function setMedFiltro(f) {
   _medFiltro = f;
@@ -12332,6 +12336,12 @@ function renderContatos() {
   };
 }
 
+var _contatosRenderTimer = null;
+function agendarRenderContatos() {
+  clearTimeout(_contatosRenderTimer);
+  _contatosRenderTimer = setTimeout(renderContatos, 180);
+}
+
 function iniciarOperacaoContato(id) {
   var c = DB.contatos.find(function(x){ return x.id === id; });
   if (!c) { toast("Contato nao encontrado.", true); return; }
@@ -16811,6 +16821,16 @@ function renderComissoes2() {
 var CRM_BACKUP_HELPER_BASE_URL = "http://127.0.0.1:8787";
 var CRM_BACKUP_HELPER_URL = CRM_BACKUP_HELPER_BASE_URL + "/backup";
 
+// O helper em 127.0.0.1 existe apenas na instalação local. Em GitHub Pages
+// (ou outro domínio público), não tente consultá-lo: cada tentativa falhava no
+// navegador e concorria com a interface do CRM.
+function crmServicoLocalDisponivel() {
+  try {
+    var host = String(location.hostname || "").toLowerCase();
+    return location.protocol === "file:" || host === "localhost" || host === "127.0.0.1" || host === "::1";
+  } catch(e) { return false; }
+}
+
 function _dbArquivoUsuarioAtual() {
   try {
     var u = window.CRMAuth && CRMAuth.current ? CRMAuth.current() : null;
@@ -16826,6 +16846,7 @@ function _dbArquivoEndpoint(path) {
 
 function _salvarDBArquivoLocalAgora(motivo) {
   try {
+    if (!crmServicoLocalDisponivel()) return false;
     if (_DB_CARREGAMENTO_PENDENTE) return false;
     _atualizarChavesPersistencia();
     if (!_persistenciaAutenticada()) return false;
@@ -16860,6 +16881,7 @@ function _salvarDBArquivoLocalAgora(motivo) {
 var _dbArquivoSaveTimer = null;
 function _salvarDBArquivoLocalAgendado(motivo) {
   try {
+    if (!crmServicoLocalDisponivel()) return false;
     clearTimeout(_dbArquivoSaveTimer);
     _dbArquivoSaveTimer = setTimeout(function(){ _salvarDBArquivoLocalAgora(motivo || "auto"); }, 250);
     return true;
@@ -16885,6 +16907,7 @@ function _carregarDBArquivoLocal(callback) {
     if (callback) callback();
   };
   try {
+    if (!crmServicoLocalDisponivel()) { finalizar(); return false; }
     _atualizarChavesPersistencia();
     if (!_persistenciaAutenticada()) { finalizar(); return false; }
     var url = _dbArquivoEndpoint("/db/load?suffix=" + encodeURIComponent(_AUTH_DATA_SUFFIX || "_shared"));
@@ -17131,7 +17154,7 @@ function _crmWhatsappImportarEvento(evento) {
 }
 
 function _sincronizarLeadsWhatsappPendentes() {
-  if (_crmWhatsappFilaEmAndamento || _DB_CARREGAMENTO_PENDENTE || document.visibilityState !== "visible" || !_persistenciaAutenticada()) return;
+  if (!crmServicoLocalDisponivel() || _crmWhatsappFilaEmAndamento || _DB_CARREGAMENTO_PENDENTE || document.visibilityState !== "visible" || !_persistenciaAutenticada()) return;
   _crmWhatsappFilaEmAndamento = true;
   fetch(_dbArquivoEndpoint("/integration/whatsapp/pending"), {cache:"no-store", headers:{"X-CRM-Integration":"whatsapp-crm-local-v1"}})
     .then(function(resp){ return resp && resp.ok ? resp.json() : null; })
@@ -17166,7 +17189,7 @@ function _sincronizarLeadsWhatsappPendentes() {
 }
 
 function _sincronizarContatosWhatsappDoArquivo() {
-  if (_crmWhatsappSyncEmAndamento || document.visibilityState !== "visible" || !_persistenciaAutenticada()) return;
+  if (!crmServicoLocalDisponivel() || _crmWhatsappSyncEmAndamento || document.visibilityState !== "visible" || !_persistenciaAutenticada()) return;
   try {
     _atualizarChavesPersistencia();
     _crmWhatsappSyncEmAndamento = true;
@@ -17183,8 +17206,10 @@ function _sincronizarContatosWhatsappDoArquivo() {
     _crmWhatsappSyncEmAndamento = false;
   }
 }
-setInterval(_sincronizarContatosWhatsappDoArquivo, 15000);
-setInterval(_sincronizarLeadsWhatsappPendentes, 6000);
+if (crmServicoLocalDisponivel()) {
+  setInterval(_sincronizarContatosWhatsappDoArquivo, 15000);
+  setInterval(_sincronizarLeadsWhatsappPendentes, 6000);
+}
 document.addEventListener("visibilitychange", function(){
   if (document.visibilityState === "visible") {
     _sincronizarContatosWhatsappDoArquivo();
@@ -17237,6 +17262,7 @@ function _baixarBackupArquivo(json, nome) {
 
 function _salvarBackupNoHelper(json, nome) {
   try {
+    if (!crmServicoLocalDisponivel()) return false;
     var payload = JSON.stringify({nome:nome, conteudo:json});
     if (navigator.sendBeacon) {
       var blob = new Blob([payload], {type:"text/plain;charset=UTF-8"});
@@ -17303,20 +17329,9 @@ carregarWA();
 organizarCRMRelatorios();
 atualizarCod();
 renderDashboard();
-renderBase();
-renderStats();
-filtrar();
-renderCRM();
-renderCRMCashbackReceber();
-renderCRMCaptacoesReceber();
-renderRelatorios();
+// As demais telas são renderizadas quando o usuário as abre. Montá-las todas
+// aqui duplicava o trabalho de inicialização, sobretudo em bases com fotos.
 try { inicializarRotaRelatorios(); } catch(e) { console.warn("Falha ao inicializar rota de relatórios", e); }
-renderCaptacoesExternas();
-renderBonusCaptacao();
-renderContatos()
-;renderRedesSociais();
-
-renderAgenda();
 try { crmAutomacaoAltaPrioridadeExecutar(); } catch(e) { console.warn("Falha ao processar ligação automática de Alta Prioridade", e); }
 setTimeout(_verificarAlertas,2000);
 setInterval(_verificarAlertas,60000);
