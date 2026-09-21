@@ -1204,7 +1204,7 @@ body.auth-locked #auth-screen{display:flex}
   <div class="auth-shell">
     <section class="auth-brand">
       <div>
-        <img src="assets/crm-icone.png" alt="CRM Imóveis" width="72" height="72" decoding="async" onerror="crmImagemFalhou(this,'logo')">
+        <img src="assets/crm-icone.png" alt="CRM Imóveis" width="72" height="72" decoding="async" onerror="this.onerror=null;this.style.display='none'">
         <h1>CRM Imóveis</h1>
         <p>Gestão imobiliária, atendimento, captação, comissões e relacionamento em um único sistema.</p>
         <span class="auth-version" title="Última alteração publicada em 03/09/2026">Versão 2026.09.03.1 · Atualizado em 03/09/2026</span>
@@ -1936,7 +1936,7 @@ body.auth-locked #auth-screen{display:flex}
       </div>
       <div class="crm-registros-menu" id="crm-registros-menu">
         <button type="button" class="btn crm-registros-toggle" onclick="alternarMenuRegistros(event)" aria-haspopup="true" aria-expanded="false">
-          <img class="crm-registros-main-icon" src="assets/crm-icone.png" alt="" width="24" height="24" loading="lazy" decoding="async" onerror="crmImagemFalhou(this,'logo')">
+          <img class="crm-registros-main-icon" src="assets/crm-icone.png" alt="" width="24" height="24" loading="lazy" decoding="async" onerror="this.onerror=null;this.style.display='none'">
           <span>Registros</span>
           <span aria-hidden="true">▾</span>
         </button>
@@ -5018,6 +5018,10 @@ function _snapshotDB(incluirContatos) {
     persistRevision: Number(DB.persistRevision || 0),
     localizacoesPreferidas: DB.localizacoesPreferidas || {cidades:[], bairros:[], condominios:[]},
     configComissoes: DB.configComissoes || null,
+    tagsLead: DB.tagsLead || [],
+    tagsProprietarios: DB.tagsProprietarios || {},
+    catalogoTagsProprietarios: DB.catalogoTagsProprietarios || [],
+    localizacoesHistoricoVersao: DB.localizacoesHistoricoVersao || 0,
     iSeq: DB.iSeq || 1, nSeq: DB.nSeq || 1, cSeq: DB.cSeq || 1, tSeq: DB.tSeq || 1, pSeq: DB.pSeq || 1, capSeq: DB.capSeq || 1, rsSeq: DB.rsSeq || 1, hfSeq: DB.hfSeq || 1
   };
 }
@@ -5051,6 +5055,10 @@ function _aplicarSnapshotDB(data) {
   DB.localizacoesPreferidas = data.localizacoesPreferidas && typeof data.localizacoesPreferidas === "object" ? data.localizacoesPreferidas : {cidades:[], bairros:[], condominios:[]};
   DB.configComissoes = data.configComissoes ? (typeof crmComissaoMergeConfig === "function" ? crmComissaoMergeConfig(data.configComissoes) : data.configComissoes) : null;
   DB.iSeq = data.iSeq || 1;
+  DB.tagsLead = Array.isArray(data.tagsLead) ? data.tagsLead : [];
+  DB.tagsProprietarios = data.tagsProprietarios && typeof data.tagsProprietarios === "object" && !Array.isArray(data.tagsProprietarios) ? data.tagsProprietarios : {};
+  DB.catalogoTagsProprietarios = Array.isArray(data.catalogoTagsProprietarios) ? data.catalogoTagsProprietarios : [];
+  DB.localizacoesHistoricoVersao = Number(data.localizacoesHistoricoVersao || 0);
   DB.nSeq = data.nSeq || 1;
   DB.cSeq = data.cSeq || 1;
   DB.tSeq = data.tSeq || 1;
@@ -5459,7 +5467,6 @@ function salvarDB() {
     }
   }
   try { _salvarDBArquivoLocalAgendado("salvarDB"); } catch(_eArquivo) {}
-  try { _salvarDBCompactoCritico(); } catch(_eCompactoFinal) {}
   return baseOk || idbAgendado;
 }
 
@@ -5498,7 +5505,7 @@ function carregarDB() {
     };
     _carregarDBArquivoLocal(concluirUma);
     _recuperarDBIndexedDB(function(ok){
-      if(ok) { console.info("DB principal recuperado do IndexedDB"); try{crmFollowupNormalizarSistema(); _renderTudoAposRecuperarDB();}catch(e){} }
+      if(ok) console.info("DB principal recuperado do IndexedDB");
       concluirUma();
     });
     _recuperarContatosIndexedDB(function(ok){
@@ -6424,9 +6431,16 @@ function organizarCRMRelatorios() {
 }
 
 function dashMoney(v){ return "R$ " + Number(v||0).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}); }
+var _crmMetricasEmAndamento = false;
+var _crmMetricasUltimaLeitura = 0;
 function crmSiteMetricas(){
   var host=document.getElementById("dash-site-metricas"); if(!host) return;
-  fetch("https://corretorluisfernando.com.br/api/metricas?dias=30",{cache:"no-store"}).then(function(r){ if(!r.ok) throw new Error("Não foi possível carregar"); return r.json(); }).then(function(d){
+  if (_crmMetricasEmAndamento || Date.now() - _crmMetricasUltimaLeitura < 60000) return;
+  _crmMetricasEmAndamento = true;
+  var controle = new AbortController();
+  var limite = setTimeout(function(){controle.abort();}, 10000);
+  fetch("https://corretorluisfernando.com.br/api/metricas?dias=30",{cache:"no-store",signal:controle.signal}).then(function(r){ if(!r.ok) throw new Error("Não foi possível carregar"); return r.json(); }).then(function(d){
+    _crmMetricasUltimaLeitura = Date.now();
     var cliques=Array.isArray(d.cliques)?d.cliques:[];
     var porTipo={}; cliques.forEach(function(x){porTipo[x.tipo]=Number(x.total||0);});
     var imoveis=Array.isArray(d.imoveis)?d.imoveis:[];
@@ -6438,7 +6452,7 @@ function crmSiteMetricas(){
       '<div class="dash-card"><small>Cadastros pelo site</small><strong>'+crmEscAttr(porTipo.property_submission||0)+'</strong><span>para avaliação</span></div></div>'+ 
       '<div class="dash-grid" style="margin-top:14px"><div class="dash-card"><small>Imóveis mais acessados</small>'+(imoveis.length?imoveis.map(function(x){return '<div class="dash-item"><b>'+crmEscAttr(x.codigo||"Sem código")+'</b><small>'+crmEscAttr(x.visualizacoes||0)+' visualizações</small></div>';}).join(""):'<span>Sem dados ainda.</span>')+'</div>'+ 
       '<div class="dash-card"><small>Origem dos acessos</small>'+(origens.length?origens.map(function(x){return '<div class="dash-item"><b>'+crmEscAttr(x.source||"direto")+'</b><small>'+crmEscAttr(x.total||0)+' visitas</small></div>';}).join(""):'<span>Sem dados ainda.</span>')+'</div></div>';
-  }).catch(function(){host.innerHTML='<div class="empty" style="padding:12px 0">Não foi possível consultar os indicadores do site. Verifique a conexão e tente novamente. Isso não significa que o site esteja sem acessos.</div>';});
+  }).catch(function(){host.innerHTML='<div class="empty" style="padding:12px 0">Não foi possível consultar os indicadores do site. Verifique a conexão e tente novamente. Isso não significa que o site esteja sem acessos.</div>';}).finally(function(){clearTimeout(limite);_crmMetricasEmAndamento=false;});
 }
 function renderDashboard(){
   if (!window.DB) return;
@@ -7338,6 +7352,7 @@ document.getElementById("modal-im-bg").addEventListener("click", function(e){ if
 //  TABELA BASE
 // ═══════════════════════════════════════════
 function renderBase() {
+  clearTimeout(_baseRenderTimer);
   var grid = document.getElementById("base-catalog-grid");
   var empty = document.getElementById("empty-base");
   var resumo = document.getElementById("base-catalog-summary");
@@ -12295,6 +12310,7 @@ function crmAdicionarCodigoImovelContato(atual, novo) {
 }
 
 function renderContatos() {
+  clearTimeout(_contatosRenderTimer);
   var tbody = document.getElementById("tbody-contatos");
   var empty = document.getElementById("empty-contatos");
   var total = document.getElementById("cont-total");
@@ -17306,11 +17322,10 @@ function _salvarBackupNoHelper(json, nome) {
   }
 }
 
-function gerarBackupAutomaticoLocal(motivo, tambemBaixar) {
+function gerarBackupAutomaticoLocal(motivo, tambemBaixar, baseJaSalva) {
   if (_DB_CARREGAMENTO_PENDENTE) return false;
   if (!DB || (!DB.imoveis.length && !DB.negocios.length && !DB.contatos.length && !(DB.tarefas||[]).length)) return false;
-  try { salvarContatosAgora(true); } catch(_e) {}
-  try { salvarDB(); } catch(_e2) {}
+  if (!baseJaSalva) { try { salvarDB(); } catch(_e2) {} }
   var nome = _nomeBackupAutomatico(motivo === "sair" ? "backup_ao_sair" : "backup_ao_fechar");
   var json = JSON.stringify(_payloadBackupAutomatico(motivo), null, 2);
   var enviado = _salvarBackupNoHelper(json, nome);
@@ -17323,25 +17338,24 @@ function gerarBackupAutomaticoLocal(motivo, tambemBaixar) {
 //  BACKUP AUTOMÁTICO AO FECHAR
 // ═══════════════════════════════════════════
 
-function _backupAoFechar(motivo) {
+function _backupAoFechar(motivo, baseJaSalva) {
   if (_DB_CARREGAMENTO_PENDENTE) return false;
   try { _salvarDBArquivoLocalAgora(motivo || "fechar_pagina"); } catch(_eArquivo) {}
-  gerarBackupAutomaticoLocal(motivo || "fechar_pagina", true);
+  gerarBackupAutomaticoLocal(motivo || "fechar_pagina", true, baseJaSalva);
   return true;
 }
 
 
 // Registra backup automático ao fechar/recarregar a página
 window.addEventListener("beforeunload", function(e) {
-  try { salvarContatosAgora(true); } catch(_e) {}
-  try { if (typeof salvarDB === "function") salvarDB(); } catch(_eDB) {}
-  _backupAoFechar("fechar_pagina");
+  var salvo = false;
+  try { if (typeof salvarDB === "function") salvo = salvarDB(); } catch(_eDB) {}
+  _backupAoFechar("fechar_pagina", salvo);
   // Não exibe diálogo de confirmação — o backup já foi disparado
 });
 
 document.addEventListener("visibilitychange", function(){
   if (document.visibilityState === "hidden") {
-    try { salvarContatosAgora(true); } catch(_e) {}
     try { if (typeof salvarDB === "function") salvarDB(); } catch(_eDB) {}
   }
 });
