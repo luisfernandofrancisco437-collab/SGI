@@ -16,6 +16,10 @@
 <p>Defina uma nova senha para sua conta do CRM. Esta página é independente do site de imóveis.</p>
 <p id="status" role="status" aria-live="polite">Conferindo o link…</p>
 <button id="validate" type="button" hidden>Validar meu link de acesso</button>
+<form id="request-form" hidden>
+<label for="email">E-mail de acesso ao CRM</label><input id="email" type="email" autocomplete="email" maxlength="254" required>
+<button id="send" type="submit">Enviar link de recuperação</button>
+</form>
 <form id="password-form" hidden>
 <label for="password">Nova senha</label><input id="password" type="password" autocomplete="new-password" minlength="12" required>
 <label for="confirmation">Confirmar senha</label><input id="confirmation" type="password" autocomplete="new-password" minlength="12" required>
@@ -36,6 +40,7 @@
  var hash=query.get('token_hash')||'',access=fragment.get('access_token')||'';
  var providerError=query.get('error')||fragment.get('error')||query.get('error_code')||fragment.get('error_code');
  var busy=false,verified=false,finished=false;
+ var nextRequestAt=0;
  // Remove recovery credentials from the address bar immediately. Never persist them.
  try{history.replaceState(null,'',location.pathname);}catch(e){}
  query=null;fragment=null;
@@ -49,7 +54,21 @@
    return {ok:response.ok,status:response.status,data:data};
   }finally{clearTimeout(timer);}
  }
- function invalidate(){clear();$('validate').hidden=true;$('password-form').hidden=true;status('O link é inválido, já foi utilizado ou expirou. Solicite um novo e-mail de recuperação no CRM e use apenas o mais recente.',true);}
+ function invalidate(){clear();$('validate').hidden=true;$('password-form').hidden=true;$('request-form').hidden=false;status('O link é inválido, já foi utilizado ou expirou. Informe seu e-mail abaixo para solicitar outro link e use apenas o mais recente.',true);}
+ $('request-form').onsubmit=async function(event){
+  event.preventDefault();if(busy||finished)return;
+  var email=$('email').value.trim().toLowerCase();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||email.length>254){status('Informe um e-mail válido.',true);return;}
+  if(Date.now()<nextRequestAt){status('Aguarde um minuto antes de solicitar outro e-mail.',true);return;}
+  busy=true;$('send').disabled=true;status('Solicitando o link de recuperação…');
+  try{
+   var result=await request('/recover?redirect_to='+encodeURIComponent('https://luisfernandofrancisco437-collab.github.io/SGI/recuperar-acesso.html'),{email:email});
+   if(!result.ok){status(result.status===429?'Muitas solicitações. Aguarde alguns minutos e tente novamente.':'Não foi possível solicitar o e-mail agora. Tente novamente mais tarde.',true);return;}
+   nextRequestAt=Date.now()+60000;
+   status('Se este e-mail estiver cadastrado, você receberá um link de recuperação. Confira também o spam. Abra o e-mail mais recente, valide o link e salve sua nova senha.');
+  }catch(e){status('Não foi possível confirmar o envio. Confira sua conexão antes de tentar novamente.',true);}
+  finally{busy=false;$('send').disabled=false;}
+ };
  $('validate').onclick=async function(){
   if(busy||finished)return;busy=true;$('validate').disabled=true;status('Validando seu acesso…');
   try{
@@ -83,6 +102,7 @@
   }catch(e){status('Não foi possível confirmar a alteração. Tente entrar no CRM antes de repetir; se necessário, solicite outro link.',true);}
   finally{clearTimeout(timer);password='';confirmation='';busy=false;$('save').disabled=false;}
  };
+ if(!providerError&&!type&&!hash&&!access){$('request-form').hidden=false;status('Esqueceu sua senha? Informe o e-mail cadastrado para receber um link seguro de recuperação.');return;}
  if(providerError||!['recovery','invite'].includes(type)||(!hash&&!access)){invalidate();return;}
  $('validate').hidden=false;status('Clique abaixo para validar o link. A validação só acontece quando você clicar, evitando o consumo automático por pré-visualizações de e-mail.');
 })();
