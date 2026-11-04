@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src https://xwettgyajktagtqpbpnk.supabase.co; base-uri 'none'; form-action 'none'">
+<title>Recuperar acesso — CRM SGI</title>
+<style>
+*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:#071c2e;color:#f8fafc;font:16px/1.5 system-ui,sans-serif;padding:20px}main{width:min(100%,500px);padding:28px;border:1px solid #38536b;border-radius:20px;background:#102b41}h1{font-size:26px;margin:8px 0}p{color:#cbd5e1}label{display:block;margin:16px 0 6px;font-weight:600}input,button{font:inherit;width:100%;padding:12px;border-radius:9px;border:1px solid #789;background:#fff;color:#10243a}button{margin-top:18px;background:#ffbf00;border:0;font-weight:700;cursor:pointer}button:disabled{opacity:.55;cursor:wait}a{color:#ffdc73}#status{padding:12px;border-radius:8px;background:#193c55;overflow-wrap:anywhere}#status[data-error="true"]{background:#5b202b;color:#ffe1e1}[hidden]{display:none!important}.brand{color:#ffbf00;font-weight:800;letter-spacing:.12em}.hint{font-size:14px}
+</style>
+</head>
+<body><main>
+<div class="brand">CRM SGI</div><h1>Recuperar seu acesso</h1>
+<p>Defina uma nova senha para sua conta do CRM. Esta página é independente do site de imóveis.</p>
+<p id="status" role="status" aria-live="polite">Conferindo o link…</p>
+<button id="validate" type="button" hidden>Validar meu link de acesso</button>
+<form id="password-form" hidden>
+<label for="password">Nova senha</label><input id="password" type="password" autocomplete="new-password" minlength="12" required>
+<label for="confirmation">Confirmar senha</label><input id="confirmation" type="password" autocomplete="new-password" minlength="12" required>
+<p class="hint">Use pelo menos 12 caracteres. Não compartilhe sua senha.</p>
+<button id="save" type="submit">Salvar nova senha</button>
+</form>
+<p id="login" hidden><a href="https://luisfernandofrancisco437-collab.github.io/SGI/homologacao.html" rel="noreferrer">Acessar o CRM de homologação</a></p>
+<p class="hint">Use somente o e-mail mais recente. Não encaminhe seu link de recuperação.</p>
+</main>
+<script>
+(function(){
+ 'use strict';
+ var base='https://xwettgyajktagtqpbpnk.supabase.co/auth/v1';
+ var key='sb_publishable_cKBbdWh4OxWszwhxyovnvw_Of8QEfD6';
+ var $=function(id){return document.getElementById(id);};
+ var query=new URLSearchParams(location.search),fragment=new URLSearchParams(location.hash.slice(1));
+ var type=query.get('type')||fragment.get('type')||'';
+ var hash=query.get('token_hash')||'',access=fragment.get('access_token')||'';
+ var providerError=query.get('error')||fragment.get('error')||query.get('error_code')||fragment.get('error_code');
+ var busy=false,verified=false,finished=false;
+ // Remove recovery credentials from the address bar immediately. Never persist them.
+ try{history.replaceState(null,'',location.pathname);}catch(e){}
+ query=null;fragment=null;
+ function status(message,error){$('status').textContent=message;$('status').dataset.error=error?'true':'false';}
+ function clear(){access='';hash='';verified=false;}
+ async function request(path,body,token){
+  var controller=new AbortController(),timer=setTimeout(function(){controller.abort();},20000);
+  try{
+   var response=await fetch(base+path,{method:body?'POST':'GET',headers:{apikey:key,...(token?{Authorization:'Bearer '+token}:{}),...(body?{'Content-Type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{}),credentials:'omit',cache:'no-store',referrerPolicy:'no-referrer',redirect:'error',signal:controller.signal});
+   var data=await response.json().catch(function(){return {};});
+   return {ok:response.ok,status:response.status,data:data};
+  }finally{clearTimeout(timer);}
+ }
+ function invalidate(){clear();$('validate').hidden=true;$('password-form').hidden=true;status('O link é inválido, já foi utilizado ou expirou. Solicite um novo e-mail de recuperação no CRM e use apenas o mais recente.',true);}
+ $('validate').onclick=async function(){
+  if(busy||finished)return;busy=true;$('validate').disabled=true;status('Validando seu acesso…');
+  try{
+   if(hash){
+    var result=await request('/verify',{token_hash:hash,type:type});
+    if(!result.ok||!result.data.access_token){invalidate();return;}
+    access=result.data.access_token;hash='';
+   }
+   var user=await request('/user',null,access);
+   if(!user.ok||!user.data.id){invalidate();return;}
+   verified=true;$('validate').hidden=true;$('password-form').hidden=false;
+   status('Link validado. Digite e confirme sua nova senha.');$('password').focus();
+  }catch(e){status('Não foi possível validar agora. Confira sua conexão e tente novamente. Se o link já tiver sido consumido, solicite outro e-mail.',true);}
+  finally{busy=false;$('validate').disabled=false;}
+ };
+ $('password-form').onsubmit=async function(event){
+  event.preventDefault();if(busy||finished||!verified||!access)return;
+  var password=$('password').value,confirmation=$('confirmation').value;
+  if(password.length<12){status('Use pelo menos 12 caracteres na nova senha.',true);return;}
+  if(password!==confirmation){status('As senhas não conferem.',true);return;}
+  busy=true;$('save').disabled=true;status('Salvando sua nova senha…');
+  var controller=new AbortController(),timer=setTimeout(function(){controller.abort();},20000);
+  try{
+   var response=await fetch(base+'/user',{method:'PUT',headers:{apikey:key,Authorization:'Bearer '+access,'Content-Type':'application/json'},body:JSON.stringify({password:password}),credentials:'omit',cache:'no-store',referrerPolicy:'no-referrer',redirect:'error',signal:controller.signal});
+   if(!response.ok){
+    if(response.status===401||response.status===403){invalidate();return;}
+    status('A senha não foi aceita. Use uma senha nova, com pelo menos 12 caracteres, diferente da anterior. Se persistir, solicite outro link.',true);return;
+   }
+   finished=true;clear();$('password-form').reset();$('password-form').hidden=true;$('login').hidden=false;
+   status('Senha definida com sucesso. Acesse o CRM com seu e-mail e a nova senha.');
+  }catch(e){status('Não foi possível confirmar a alteração. Tente entrar no CRM antes de repetir; se necessário, solicite outro link.',true);}
+  finally{clearTimeout(timer);password='';confirmation='';busy=false;$('save').disabled=false;}
+ };
+ if(providerError||!['recovery','invite'].includes(type)||(!hash&&!access)){invalidate();return;}
+ $('validate').hidden=false;status('Clique abaixo para validar o link. A validação só acontece quando você clicar, evitando o consumo automático por pré-visualizações de e-mail.');
+})();
+</script></body></html>
