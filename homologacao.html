@@ -19915,7 +19915,7 @@ window.addEventListener('beforeunload',crmBackupAntesDeFechar);
     el('admin-user-password').placeholder='Senha temporária opcional (mínimo 12 caracteres)';
     el('admin-user-role').innerHTML='<option value="user">Usuário comum</option><option value="superadmin">Administrador geral</option>';
     el('admin-user-active').parentElement.style.display='none';
-    document.querySelectorAll('[onclick="authBaixarIndexComUsuarios()"],[onclick="authCopiarUsuariosPublicacao()"],#tab-admin .card:last-child').forEach(function(n){n.style.display='none';});
+    document.querySelectorAll('[onclick="authBaixarIndexComUsuarios()"],[onclick="authCopiarUsuariosPublicacao()"],#tab-admin > .card:last-child').forEach(function(n){n.style.display='none';});
     var info=document.createElement('p');info.className='platform-help';info.textContent='A lista inclui usuários do Supabase sem perfil completo. Complete a empresa e as permissões ou reative o cadastro existente em vez de criar outro e-mail.';el('admin-users-body').closest('.card').prepend(info);
     panel.addEventListener('click',function(event){var b=event.target.closest('[data-sub-action]');if(b)subAction(b.dataset.id,b.dataset.subAction).catch(error);});
     el('platform-reload').onclick=function(){loadAdmin().catch(error);};
