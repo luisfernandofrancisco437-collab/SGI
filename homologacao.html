@@ -19966,7 +19966,10 @@ window.addEventListener('beforeunload',crmBackupAntesDeFechar);
     if(admin()&&!selected){state.companyId=null;state.ready=false;return;}
     try{
       var response=await api('/data'+query),remote=response.data||{};
-      if(!snapshotHasRecords(remote)&&snapshotHasRecords(_snapshotDB(true))){
+      // Only administrators migrate legacy local data. Ordinary users load their
+      // authorized server base, even when empty; never import browser fallback data.
+      // Existing local storage/backups are not deleted or overwritten by loadData.
+      if(admin()&&!snapshotHasRecords(remote)&&snapshotHasRecords(_snapshotDB(true))){
         var emptyError=Error('A base desta empresa no servidor está vazia, mas há registros carregados no navegador. Eles foram mantidos. Conclua a importação validada do backup antes de abrir a base comercial.');emptyError.code='empty_cloud_base_requires_migration';throw emptyError;
       }
       var mediaStore=privateMedia();if(mediaStore)mediaStore.clear();
