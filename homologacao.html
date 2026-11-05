@@ -13422,7 +13422,7 @@ function renderContatos() {
           "<button onclick=\"iniciarOperacaoContato('"+ct.id+"')\" class='btn btn-primary btn-atendimento' title='Gerar atendimento novo no CRM'>+ Atendimento</button>"+
           "<button data-acao='editar' data-id='"+ct.id+"' class='btn btn-info' title='Editar contato'>Editar</button>"+
           ""+
-          "<button data-acao='excluir' data-id='"+ct.id+"' class='btn btn-danger' title='Excluir contato'>Excluir</button>"+
+          (crmContatoPodeExcluir()?"<button data-acao='excluir' data-id='"+ct.id+"' class='btn btn-danger' title='Excluir contato'>Excluir</button>":"")+
         "</div>"+
       "</td>";
     fragmento.appendChild(tr);
@@ -13534,7 +13534,7 @@ function abrirContato(id) {
   document.getElementById("c-obs").value   = c ? c.obs   : "";
   var tagNovaContato=document.getElementById("c-tag-nova");if(tagNovaContato)tagNovaContato.value="";
   crmRenderTagsContato(c&&Array.isArray(c.tagsPersonalizadas)?c.tagsPersonalizadas:[]);
-  document.getElementById("btn-excluir-cont").style.display = c ? "inline-flex" : "none";
+  document.getElementById("btn-excluir-cont").style.display = c && crmContatoPodeExcluir() ? "inline-flex" : "none";
   var btnAt = document.getElementById("btn-atendimento-cont"); if (btnAt) btnAt.style.display = c ? "inline-flex" : "none";
   document.getElementById("modal-cont-bg").classList.add("open");
   crmModalRegistrarAbertura("modal-cont-bg");
@@ -13588,7 +13588,12 @@ function salvarContato() {
   return true;
 }
 
+function crmContatoPodeExcluir() {
+  if (!crmModoPlataforma()) return true;
+  return !!(window.CRMPlatform && CRMPlatform.canAction && CRMPlatform.canAction("contatos","delete"));
+}
 function confirmarExcluirContato(id) {
+  if (!crmContatoPodeExcluir()) { toast("Seu perfil não permite excluir contatos.", true); return false; }
   if (_DB_CARREGAMENTO_PENDENTE) { toast("Aguarde o carregamento do CRM antes de excluir.", true); return false; }
   if (!confirmarExclusaoComBackup("Excluir este contato?", "Contato")) return;
   var anterior = crmCapturarEdicaoDB(["contatos"]);
@@ -13600,6 +13605,7 @@ function confirmarExcluirContato(id) {
 }
 
 function excluirContato() {
+  if (!crmContatoPodeExcluir()) { toast("Seu perfil não permite excluir contatos.", true); return false; }
   if (_DB_CARREGAMENTO_PENDENTE) { toast("Aguarde o carregamento do CRM antes de excluir.", true); return false; }
   if (!confirmarExclusaoComBackup("Excluir este contato?", "Contato")) return;
   var anterior = crmCapturarEdicaoDB(["contatos"]);
@@ -20021,7 +20027,7 @@ window.addEventListener('beforeunload',crmBackupAntesDeFechar);
       else {var first=Object.keys(tabModule).find(function(id){return allowed(tabModule[id],'view');});if(first)showTab(first);else block('Seu perfil ainda não tem funcionalidades autorizadas. Procure o administrador.');await popup();}
     }catch(e){state.ready=false;if(media)media.clear();block('Não foi possível validar seu acesso no servidor. '+e.message);}
   }
-  window.CRMPlatform={api:api,state:state,boot:boot,canTab:canTab,saveDB:saveDB,saveUser:saveUser,editUser:editUser,toggleUser:toggleUser,deleteUser:deleteUser,resetUser:resetUser,renderUsers:function(){return renderUsers().catch(error);}};
+  window.CRMPlatform={api:api,state:state,boot:boot,canTab:canTab,canAction:function(module,action){return state.ready&&valid()&&allowed(module,action);},saveDB:saveDB,saveUser:saveUser,editUser:editUser,toggleUser:toggleUser,deleteUser:deleteUser,resetUser:resetUser,renderUsers:function(){return renderUsers().catch(error);}};
   if(enabled)window.CRMMedia={
     isPrivate:function(value){var m=privateMedia();return !!m&&m.isPrivate(value);},
     toDataURI:function(value){var m=privateMedia();return m?m.toDataURI(value):Promise.resolve(value);},
