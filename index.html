@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CRM SGI — Sistema de Gerenciamento de Imóveis</title>
-<meta name="application-version" content="2026.11.05.1">
+<meta name="application-version" content="2026.11.05.2">
 <meta name="last-modified" content="2026-11-05">
 <link rel="icon" type="image/png" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2072%2072%22%3E%3Crect%20width%3D%2272%22%20height%3D%2272%22%20rx%3D%2214%22%20fill%3D%22%23142f44%22%2F%3E%3Ctext%20x%3D%2236%22%20y%3D%2244%22%20text-anchor%3D%22middle%22%20font-family%3D%22Arial%22%20font-size%3D%2222%22%20font-weight%3D%22bold%22%20fill%3D%22white%22%3ECRM%3C%2Ftext%3E%3C%2Fsvg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1244,7 +1244,7 @@ body.auth-locked #auth-screen{display:flex}
         <img src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2072%2072%22%3E%3Crect%20width%3D%2272%22%20height%3D%2272%22%20rx%3D%2214%22%20fill%3D%22%23142f44%22%2F%3E%3Ctext%20x%3D%2236%22%20y%3D%2244%22%20text-anchor%3D%22middle%22%20font-family%3D%22Arial%22%20font-size%3D%2222%22%20font-weight%3D%22bold%22%20fill%3D%22white%22%3ECRM%3C%2Ftext%3E%3C%2Fsvg%3E" alt="CRM Imóveis" width="72" height="72" decoding="async" onerror="this.onerror=null;this.style.display='none'">
         <h1>CRM Imóveis</h1>
         <p>Gestão imobiliária, atendimento, captação, comissões e relacionamento em um único sistema.</p>
-        <span class="auth-version" title="Canal automático comercial desconectado; pop-ups e envio manual preservados">Versão 2026.11.05.1 · Atualizado em 05/11/2026</span>
+        <span class="auth-version" title="Canal automático comercial desconectado; pop-ups e envio manual preservados">Versão 2026.11.05.2 · Atualizado em 05/11/2026</span>
       </div>
       <small>Acesso individual e dados separados por usuário.</small>
     </section>
@@ -1338,7 +1338,7 @@ body.auth-locked #auth-screen{display:flex}
   <div class="header-title">
     <h1>Sistema de Gerenciamento de Imóveis</h1>
     <p>Fernando · Consultor Imobiliário · CRM · Relatórios</p>
-    <span id="system-version" class="system-version-badge" title="Data da última alteração do sistema">Versão 2026.11.05.1 · 05/11/2026</span>
+    <span id="system-version" class="system-version-badge" title="Data da última alteração do sistema">Versão 2026.11.05.2 · 05/11/2026</span>
   </div>
   <div class="backup-bar">
     <button class="btn-backup" onclick="gerarBackup()" title="Salvar todos os dados em arquivo JSON">💾 Backup</button>
@@ -17899,7 +17899,22 @@ function gcalDesconectar() {
 
 var _gcalAutoTimer=null, _gcalSyncRunning=false, _gcalUltimaSyncInicio=0;
 var _gcalBatchMode=false, _gcalBatchMudou=false;
+function _gcalAcessoPermitido(){
+  if(typeof crmModoPlataforma==='function'&&crmModoPlataforma()){
+    var p=window.CRMPlatform,s=p&&p.state;
+    return !!(s&&s.ready&&s.user&&p.canAction('agenda','view')&&p.canAction('agenda','create')&&p.canAction('agenda','edit')&&
+      _GCAL.userEmail&&String(_GCAL.userEmail).toLowerCase()===String(s.user.email||'').toLowerCase());
+  }
+  return !!(window.CRMAuth&&CRMAuth.current&&CRMAuth.current())&&!_DB_CARREGAMENTO_PENDENTE;
+}
+function _gcalConfirmarGravacao(){
+  if(typeof crmModoPlataforma==='function'&&crmModoPlataforma())return CRMPlatform.saveConfirmed();
+  return salvarDB()===false?Promise.reject(new Error('O CRM não confirmou a gravação da agenda.')):Promise.resolve();
+}
 function _gcalApi(path, opt, cb, silencioso){
+  if(!_gcalAcessoPermitido()){if(cb)cb(new Error('Abra a base do CRM com permissão de agenda e conecte a conta Google do mesmo e-mail do usuário logado.'));return;}
+  if(opt&&opt.method==='DELETE'&&typeof crmModoPlataforma==='function'&&crmModoPlataforma()&&!CRMPlatform.canAction('agenda','delete')){if(cb)cb(new Error('Seu perfil não permite excluir compromissos.'));return;}
+  var syncOwner=typeof crmModoPlataforma==='function'&&crmModoPlataforma()?CRMPlatform.state.user.id+'|'+CRMPlatform.state.companyId:null;
   var finished=false;
   function finish(err, data){if(finished)return;finished=true;if(typeof cb==='function')cb(err||null,data||null);}
   _gcalGetToken(function(tk, tokenError){
@@ -17917,6 +17932,7 @@ function _gcalApi(path, opt, cb, silencioso){
       })
       .then(function(x){
         clearTimeout(temporizador);
+        if(syncOwner&&(!_gcalAcessoPermitido()||syncOwner!==CRMPlatform.state.user.id+'|'+CRMPlatform.state.companyId)){finish(new Error('A conta ou empresa mudou durante a sincronização. Reabra a agenda.'));return;}
         if(x.status===401){_gcalLimparSessaoAutorizada(true);setTimeout(gcalTentarReconexaoAutomatica,250);}
         if(x.status>=400)_gcalAnotarErro(null,x,silencioso,true);
         finish(null,x);
@@ -17957,23 +17973,31 @@ function _gcalEventoDaTarefa(t){
     var local=function(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+'T'+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':00';};
     ev.start={dateTime:local(ini),timeZone:'America/Sao_Paulo'}; ev.end={dateTime:local(fim),timeZone:'America/Sao_Paulo'};
   } else { var d=new Date(t.data+'T12:00:00'); var n=new Date(d); n.setDate(n.getDate()+1); ev.start={date:t.data}; ev.end={date:n.toISOString().slice(0,10)}; }
+  if(typeof crmModoPlataforma==='function'&&crmModoPlataforma()){
+    var company=CRMPlatform.state.companyId||'';
+    ev.extendedProperties.private.crmCompanyId=company;
+    if(!t.gcalId)ev.id='crm'+Array.from(new TextEncoder().encode(company+'|'+String(t.id))).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+  }
   return ev;
 }
 
 function gcalSincronizarTarefa(t,silencioso,done){
   done=done||function(){}; if(!t||!t.data||!_GCAL.token){done();return;}
   var method=t.gcalId?'PATCH':'POST'; var path='/events'+(t.gcalId?'/'+encodeURIComponent(t.gcalId):'');
-  _gcalApi(path,{method:method,headers:{'Content-Type':'application/json'},body:JSON.stringify(_gcalEventoDaTarefa(t))},function(err,x){
+  var evento=_gcalEventoDaTarefa(t);
+  function recebeu(err,x){
+    if(!err&&x&&x.status===409&&!t.gcalId&&evento.id){_gcalApi('/events/'+encodeURIComponent(evento.id),{},recebeu,silencioso);return;}
     if(!err && x && x.status===404 && t.gcalId){t.gcalId='';gcalSincronizarTarefa(t,silencioso,done);return;}
     if(!err && x && x.data && x.data.id){
       t.gcalId=x.data.id;t.gcalEtag=x.data.etag||'';t.gcalUpdatedAt=x.data.updated||new Date().toISOString();t.gcalLocalSyncAt=t.atualizadoEm||new Date().toISOString();
-      try { if(_gcalBatchMode)_gcalBatchMudou=true;else if(salvarDB()===false) err=new Error('O evento foi enviado ao Google, mas o CRM não conseguiu guardar o identificador da sincronização. Verifique o espaço de armazenamento.'); }
+      try { if(_gcalBatchMode)_gcalBatchMudou=true;else {_gcalConfirmarGravacao().then(function(){done(null);},function(e){_gcalAnotarErro(e,null,silencioso,true);done(e);});return;} }
       catch(e){err=new Error('O evento foi enviado ao Google, mas o CRM não conseguiu guardar a confirmação local.');}
     }
     var falha=err||((x&&x.status>=400)?new Error(_gcalMensagemErro(null,x)):null);
     if(falha){_gcalAnotarErro(falha,x,silencioso,true);if(!silencioso)toast('❌ Google Agenda: '+_gcalMensagemErro(falha,x),true);}
     done(falha);
-  },silencioso);
+  }
+  _gcalApi(path,{method:method,headers:{'Content-Type':'application/json'},body:JSON.stringify(evento)},recebeu,silencioso);
 }
 
 function gcalExcluirTarefa(t,silencioso){
@@ -17995,8 +18019,9 @@ function _gcalAplicarEvento(ev){
   DB.gcalExclusoes=DB.gcalExclusoes||[];
   if(DB.gcalExclusoes.some(function(q){return q.gcalId===ev.id;}))return false;
   var priv=(ev.extendedProperties&&ev.extendedProperties.private)||{};
+  if(typeof crmModoPlataforma==='function'&&crmModoPlataforma()&&priv.crmCompanyId&&priv.crmCompanyId!==CRMPlatform.state.companyId)return false;
   var t=DB.tarefas.find(function(x){return x.gcalId===ev.id || (priv.crmTaskId&&String(x.id)===String(priv.crmTaskId));});
-  if(ev.status==='cancelled'){if(t){DB.tarefas=DB.tarefas.filter(function(x){return x!==t;});return true;}return false;}
+  if(ev.status==='cancelled'){if(t&&t.status!=='Cancelada'){t.status='Cancelada';t.atualizadoEm=ev.updated||new Date().toISOString();t.gcalLocalSyncAt=t.atualizadoEm;t.gcalUpdatedAt=t.atualizadoEm;return true;}return false;}
   var start=(ev.start&&((ev.start.dateTime)||(ev.start.date)))||'';
   var dados={titulo:ev.summary||'(sem título)',data:start.slice(0,10),hora:ev.start&&ev.start.dateTime?start.slice(11,16):'',obs:(ev.description||'').replace(/\n?\[CRM:[^\]]+\]\s*$/,'').slice(0,1000),gcalId:ev.id,gcalEtag:ev.etag||'',gcalUpdatedAt:ev.updated||'',origemGoogle:true};
   if(t){
@@ -18030,6 +18055,7 @@ function _gcalEnviarPendentes(done,silencioso){
 }
 
 function gcalSincronizarBidirecional(silencioso){
+  if(!_gcalAcessoPermitido()){if(!silencioso)toast('Abra a base do CRM e conecte o Google com o mesmo e-mail do usuário logado para sincronizar.',true);return;}
   if(_gcalSyncRunning)return;
   if(!_GCAL.token){
     if(_gcalAutorizacaoPersistida()){
@@ -18043,17 +18069,15 @@ function gcalSincronizarBidirecional(silencioso){
   if(silencioso&&(document.hidden||agoraSync-_gcalUltimaSyncInicio<120000))return;
   _gcalUltimaSyncInicio=agoraSync;_gcalBatchMode=true;_gcalBatchMudou=false;
   _gcalSyncRunning=true;_gcalUltimoErro='';_gcalUI();if(!silencioso)toast('🔄 Sincronizando agendas...');
-  function finalizarLote(){var mudou=_gcalBatchMudou;_gcalBatchMode=false;_gcalBatchMudou=false;if(mudou){try{salvarDB();renderAgenda();}catch(e){console.warn('Falha ao persistir lote do Google Agenda',e);}}}
-  function falhou(erro){finalizarLote();_gcalSyncRunning=false;_gcalAnotarErro(erro||new Error('A sincronização não foi concluída.'),null,silencioso);if(!silencioso)toast('❌ Google Agenda: '+_gcalUltimoErro,true);}
+  function finalizarLote(){var mudou=_gcalBatchMudou;_gcalBatchMode=false;_gcalBatchMudou=false;return mudou?_gcalConfirmarGravacao().then(function(){renderAgenda();}):Promise.resolve();}
+  function falhou(erro){finalizarLote().catch(function(e){erro=e;}).finally(function(){_gcalSyncRunning=false;_gcalAnotarErro(erro||new Error('A sincronização não foi concluída.'),null,silencioso);if(!silencioso)toast('❌ Google Agenda: '+_gcalUltimoErro,true);});}
   _gcalProcessarExclusoes(function(erroExclusoes){
     if(erroExclusoes){falhou(erroExclusoes);return;}
     _gcalBaixarEventos(function(err){
       if(err){falhou(err);return;}
       _gcalEnviarPendentes(function(errEnvio){
         if(errEnvio){falhou(errEnvio);return;}
-        finalizarLote();
-        _gcalSyncRunning=false;_gcalUltimoErro='';
-        _gcalUI();if(!silencioso)toast('✅ Agendas sincronizadas.');
+        finalizarLote().then(function(){_gcalSyncRunning=false;_gcalUltimoErro='';_gcalUI();if(!silencioso)toast('✅ Agendas sincronizadas e confirmadas pelo CRM.');},function(e){_gcalSyncRunning=false;_gcalAnotarErro(e,null,silencioso);if(!silencioso)toast('❌ '+e.message,true);});
       },silencioso);
     },silencioso);
   },silencioso);
@@ -18062,8 +18086,9 @@ function gcalSincronizarBidirecional(silencioso){
 function gcalSincronizar(){gcalSincronizarBidirecional(false);}
 function gcalImportarEventos(){gcalSincronizarBidirecional(false);}
 function gcalIniciarSincronizacaoAutomatica(){
+  if(!_gcalAcessoPermitido())return;
   if(_gcalAutoTimer)clearInterval(_gcalAutoTimer);if(!_GCAL.token)return;
-  if(localStorage.getItem('gcal_lead_contact_v1')!=='ok'){
+ if(!(typeof crmModoPlataforma==='function'&&crmModoPlataforma())&&localStorage.getItem('gcal_lead_contact_v1')!=='ok'){
     var agora=new Date().toISOString();
     (DB.tarefas||[]).forEach(function(t){if(t.data)t.atualizadoEm=agora;});
     localStorage.setItem('gcal_lead_contact_v1','ok'); salvarDB();
@@ -18081,6 +18106,17 @@ function _gcalRetomarAoVoltar(){
 window.addEventListener('focus',_gcalRetomarAoVoltar);
 window.addEventListener('online',_gcalRetomarAoVoltar);
 document.addEventListener('visibilitychange',function(){if(!document.hidden)_gcalRetomarAoVoltar();});
+// Start only after the authorized Supabase base is ready, never on the login page.
+var _gcalPlataformaAtiva='';
+setInterval(function(){
+  if(typeof crmModoPlataforma!=='function'||!crmModoPlataforma())return;
+  if(!_gcalAcessoPermitido()){
+    _gcalPlataformaAtiva='';if(_gcalAutoTimer){clearInterval(_gcalAutoTimer);_gcalAutoTimer=null;}return;
+  }
+  var key=CRMPlatform.state.user.id+'|'+CRMPlatform.state.companyId;
+  if(key===_gcalPlataformaAtiva)return;_gcalPlataformaAtiva=key;
+  if(_gcalTokenValido())gcalIniciarSincronizacaoAutomatica();else gcalTentarReconexaoAutomatica();
+},5000);
 
 
 // ═══════════════════════════════════════════
@@ -20916,18 +20952,13 @@ window.addEventListener('beforeunload',crmBackupAntesDeFechar);
 </script>
 <script data-crm-external-paused="1">
 (function(){
- var message='Google Agenda e publicação do site permanecem pausados. A reativação exige conferência separada das integrações.';
+ var message='A publicação do site permanece pausada. Google Agenda habilitado para sincronização.';
  function notice(){if(typeof toast==='function')toast(message,true);}
- window._gcalApi=function(path,options,done){if(done)done(new Error(message));};
- window._gcalGetToken=function(done){if(done)done(new Error(message));};
- window.gcalTentarReconexaoAutomatica=function(){return false;};
- window.gcalIniciarSincronizacaoAutomatica=function(){return false;};
- window.gcalConectar=notice;
  window.sincronizarSitePublico=function(silent){if(!silent)notice();return Promise.resolve(false);};
  window.crmAgendarSincronizacaoSite=function(){return false;};
  window.importarLeadsPublicosPendentes=function(){return false;};
  var banner=document.createElement('div');banner.id='crm-homologacao-banner';banner.setAttribute('role','status');
- banner.textContent='CRM integrado · Google Agenda e publicação do site pausados';
+ banner.textContent='CRM integrado · publicação do site pausada';
  banner.style.cssText='position:fixed;top:0;right:0;max-width:90vw;padding:7px 12px;border-radius:0 0 0 9px;background:#fef3c7;color:#713f12;font:600 12px Arial;z-index:2147483646;pointer-events:none';document.body.appendChild(banner);
 })();
 </script>
