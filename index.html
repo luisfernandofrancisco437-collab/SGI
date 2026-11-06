@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CRM SGI — Sistema de Gerenciamento de Imóveis</title>
-<meta name="application-version" content="2026.11.06.1">
+<meta name="application-version" content="2026.11.06.2">
 <meta name="last-modified" content="2026-11-06">
 <link rel="icon" type="image/png" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2072%2072%22%3E%3Crect%20width%3D%2272%22%20height%3D%2272%22%20rx%3D%2214%22%20fill%3D%22%23142f44%22%2F%3E%3Ctext%20x%3D%2236%22%20y%3D%2244%22%20text-anchor%3D%22middle%22%20font-family%3D%22Arial%22%20font-size%3D%2222%22%20font-weight%3D%22bold%22%20fill%3D%22white%22%3ECRM%3C%2Ftext%3E%3C%2Fsvg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1244,7 +1244,7 @@ body.auth-locked #auth-screen{display:flex}
         <img src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2072%2072%22%3E%3Crect%20width%3D%2272%22%20height%3D%2272%22%20rx%3D%2214%22%20fill%3D%22%23142f44%22%2F%3E%3Ctext%20x%3D%2236%22%20y%3D%2244%22%20text-anchor%3D%22middle%22%20font-family%3D%22Arial%22%20font-size%3D%2222%22%20font-weight%3D%22bold%22%20fill%3D%22white%22%3ECRM%3C%2Ftext%3E%3C%2Fsvg%3E" alt="CRM Imóveis" width="72" height="72" decoding="async" onerror="this.onerror=null;this.style.display='none'">
         <h1>CRM Imóveis</h1>
         <p>Gestão imobiliária, atendimento, captação, comissões e relacionamento em um único sistema.</p>
-        <span class="auth-version" title="Canal automático comercial desconectado; pop-ups e envio manual preservados">Versão 2026.11.06.1 · Atualizado em 06/11/2026</span>
+        <span class="auth-version" title="Canal automático comercial desconectado; pop-ups e envio manual preservados">Versão 2026.11.06.2 · Atualizado em 06/11/2026</span>
       </div>
       <small>Acesso individual e dados separados por usuário.</small>
     </section>
@@ -1338,7 +1338,7 @@ body.auth-locked #auth-screen{display:flex}
   <div class="header-title">
     <h1>Sistema de Gerenciamento de Imóveis</h1>
     <p>Fernando · Consultor Imobiliário · CRM · Relatórios</p>
-    <span id="system-version" class="system-version-badge" title="Data da última alteração do sistema">Versão 2026.11.06.1 · 06/11/2026</span>
+    <span id="system-version" class="system-version-badge" title="Data da última alteração do sistema">Versão 2026.11.06.2 · 06/11/2026</span>
   </div>
   <div class="backup-bar">
     <button class="btn-backup" onclick="gerarBackup()" title="Salvar todos os dados em arquivo JSON">💾 Backup</button>
@@ -9680,6 +9680,7 @@ function crmPosVendaItens(n) {
     {key:"pastaContrato", label:"Pasta entregue para contrato"},
     {key:"contratoEnvio", label:"Contrato enviado para assinatura"},
     {key:"contratoAssinado", label:"Contrato assinado"},
+    {key:"trocaTitularidadeRealizada", label:"Troca de titularidade realizada"},
     {key:"vistoriaEnvio", label:"Vistoria enviada para assinatura"},
     {key:"vistoriaAssinada", label:"Vistoria assinada"}
   ];
