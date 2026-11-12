@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CRM SGI — Sistema de Gerenciamento de Imóveis</title>
-<meta name="application-version" content="2026.11.09.1">
+<meta name="application-version" content="2026.11.12.1">
 <meta name="last-modified" content="2026-11-06">
 <link rel="icon" type="image/png" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2072%2072%22%3E%3Crect%20width%3D%2272%22%20height%3D%2272%22%20rx%3D%2214%22%20fill%3D%22%23142f44%22%2F%3E%3Ctext%20x%3D%2236%22%20y%3D%2244%22%20text-anchor%3D%22middle%22%20font-family%3D%22Arial%22%20font-size%3D%2222%22%20font-weight%3D%22bold%22%20fill%3D%22white%22%3ECRM%3C%2Ftext%3E%3C%2Fsvg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1244,7 +1244,7 @@ body.auth-locked #auth-screen{display:flex}
         <img src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2072%2072%22%3E%3Crect%20width%3D%2272%22%20height%3D%2272%22%20rx%3D%2214%22%20fill%3D%22%23142f44%22%2F%3E%3Ctext%20x%3D%2236%22%20y%3D%2244%22%20text-anchor%3D%22middle%22%20font-family%3D%22Arial%22%20font-size%3D%2222%22%20font-weight%3D%22bold%22%20fill%3D%22white%22%3ECRM%3C%2Ftext%3E%3C%2Fsvg%3E" alt="CRM Imóveis" width="72" height="72" decoding="async" onerror="this.onerror=null;this.style.display='none'">
         <h1>CRM Imóveis</h1>
         <p>Gestão imobiliária, atendimento, captação, comissões e relacionamento em um único sistema.</p>
-        <span class="auth-version" title="Canal automático comercial desconectado; pop-ups e envio manual preservados">Versão 2026.11.09.1 · Atualizado em 09/11/2026</span>
+        <span class="auth-version" title="Canal automático comercial desconectado; pop-ups e envio manual preservados">Versão 2026.11.12.1 · Atualizado em 12/11/2026</span>
       </div>
       <small>Acesso individual e dados separados por usuário.</small>
     </section>
@@ -1338,7 +1338,7 @@ body.auth-locked #auth-screen{display:flex}
   <div class="header-title">
     <h1>Sistema de Gerenciamento de Imóveis</h1>
     <p>Fernando · Consultor Imobiliário · CRM · Relatórios</p>
-    <span id="system-version" class="system-version-badge" title="Data da última alteração do sistema">Versão 2026.11.09.1 · 09/11/2026</span>
+    <span id="system-version" class="system-version-badge" title="Data da última alteração do sistema">Versão 2026.11.12.1 · 12/11/2026</span>
   </div>
   <div class="backup-bar">
     <button class="btn-backup" onclick="gerarBackup()" title="Salvar todos os dados em arquivo JSON">💾 Backup</button>
@@ -20688,6 +20688,121 @@ window.addEventListener('beforeunload',crmBackupAntesDeFechar);
 });
 
 </script>
+<script data-crm-captacoes-inventario="1">
+/* Consulta descritiva dos imóveis cadastrados. Não gera bônus ou lançamentos. */
+(function(root,factory){
+  var core=typeof module==='object'&&module.exports?require('./PLATAFORMA_CRM/captacoes-core.cjs'):root.CRMCaptacoesCore;
+  var api=factory(core);if(typeof module==='object'&&module.exports)module.exports=api;else root.CRMCaptacoesInventario=api;
+})(typeof window!=='undefined'?window:globalThis,function(C){
+  'use strict';
+  function text(v){return String(v==null?'':v).normalize('NFKC').replace(/\s+/g,' ').trim();}
+  function norm(v){return text(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR');}
+  function moneyValue(v){
+    function amount(n){var cents=Math.round(n*100);return Number.isFinite(n)&&n>=0&&Number.isSafeInteger(cents)?cents/100:null;}
+    if(typeof v==='number')return amount(v);
+    var s=text(v).replace(/^R\$\s*/,'').replace(/\s/g,'');if(!s)return null;
+    if(/^\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?$/.test(s))s=s.replace(/\./g,'').replace(',','.');
+    else if(/^\d+(?:,\d{1,2})?$/.test(s))s=s.replace(',','.');
+    else if(!/^\d+\.\d{1,2}$/.test(s))return null;
+    return amount(Number(s));
+  }
+  function prefer(a,b){return a!=null&&text(a)!==''?a:b;}
+  function build(input,filters,options){
+    filters=filters||{};options=options||{};var today=C.normalizeDate(options.today)||C.normalizeDate(new Date());
+    var mode=filters.mode||'month';if(!['month','year','all'].includes(mode))throw Error('Período de captações inválido.');
+    var p=C.resolvePeriod({periodo:{month:'mensal',year:'ano',all:'all'}[mode],mes:filters.month||'',ano:filters.year||''},{today:today});
+    var seen=new Set(),entries=[],warnings=[],undated=[],cities=new Map(),neighborhoods=new Map(),types=new Map();
+    var totals={quantidade:0,venda:0,locacao:0,valorVenda:0,valorLocacao:0,semValorVenda:0,semValorLocacao:0};
+    function group(map,key,name,city,e){
+      if(!map.has(key))map.set(key,{nome:name,cidade:city||'',quantidade:0,valorVenda:0,valorLocacao:0});
+      var g=map.get(key);g.quantidade++;g.valorVenda+=Math.round((e.valorVenda||0)*100);g.valorLocacao+=Math.round((e.valorLocacao||0)*100);
+    }
+    (Array.isArray(input)?input:[]).forEach(function(im){
+      if(!im||typeof im!=='object')return;
+      var codigo=text(im.codigo).toLocaleUpperCase('pt-BR'),id=text(im.id),key=codigo?'code:'+codigo:id?'id:'+id:'';
+      if(!key){warnings.push('Um cadastro sem código ou identificação não pôde ser contabilizado.');return;}
+      if(seen.has(key)){warnings.push('Cadastro duplicado '+(codigo||id)+' contabilizado somente uma vez.');return;}seen.add(key);
+      var date=C.normalizeDate(im.dataCadastroOriginal||im.data||im.cadastradoEm||im.createdAt||'');
+      if(date&&date>today){warnings.push('Imóvel '+(codigo||id)+': cadastro com data futura, fora da contagem.');return;}
+      if(!date){undated.push(codigo||id);if(mode!=='all')return;}
+      if(date&&((p.inicio&&date<p.inicio)||(p.fim&&date>p.fim)))return;
+      var op=text(im.op||im.operacao),rental=C.isRental(op),sale=norm(op)==='venda'||rental&&/\bvenda\b/.test(norm(op));
+      var e={codigo:codigo||id,tipo:text(im.tipo)||'Não informado',cidade:text(im.cidade)||'Não informada',bairro:text(im.bairro)||'Não informado',op:op||'Não informada',dataCadastro:date,
+        valorVenda:sale?moneyValue(rental?im.valorVenda:prefer(im.valorVenda,im.valor)):null,valorLocacao:rental?moneyValue(prefer(im.valorLocacao,im.valor)):null};
+      // A operação dupla conta uma captação, mas seus dois preços têm unidades distintas.
+      totals.quantidade++;if(sale){totals.venda++;if(e.valorVenda==null)totals.semValorVenda++;else totals.valorVenda+=Math.round(e.valorVenda*100);}
+      if(rental){totals.locacao++;if(e.valorLocacao==null)totals.semValorLocacao++;else totals.valorLocacao+=Math.round(e.valorLocacao*100);}
+      entries.push(e);group(cities,norm(e.cidade),e.cidade,'',e);group(neighborhoods,JSON.stringify([norm(e.cidade),norm(e.bairro)]),e.bairro,e.cidade,e);group(types,norm(e.tipo),e.tipo,'',e);
+    });
+    if(undated.length)warnings.push(undated.length+' cadastro(s) sem data original válida: aparecem somente em Todo o histórico, sem atribuição de mês.');
+    if(totals.semValorVenda||totals.semValorLocacao)warnings.push('Valores ausentes ou inválidos não entram nos totais monetários. Nenhum preço é estimado.');
+    function groups(map){return Array.from(map.values()).map(function(g){g.valorVenda/=100;g.valorLocacao/=100;return g;}).sort(function(a,b){return b.quantidade-a.quantidade||a.nome.localeCompare(b.nome,'pt-BR')||a.cidade.localeCompare(b.cidade,'pt-BR');});}
+    totals.valorVenda/=100;totals.valorLocacao/=100;
+    entries.sort(function(a,b){return String(b.dataCadastro||'').localeCompare(String(a.dataCadastro||''))||a.codigo.localeCompare(b.codigo,'pt-BR');});
+    return {entries:entries,totals:totals,cities:groups(cities),neighborhoods:groups(neighborhoods),types:groups(types),warnings:Array.from(new Set(warnings)),undated:undated,period:p};
+  }
+  return {build:build,version:'1.0.0'};
+});
+
+(function(){
+  'use strict';if(typeof window==='undefined'||!window.document)return;
+  var API=window.CRMCaptacoesInventario,$=function(id){return document.getElementById(id);},state={owner:'',page:1,report:null};
+  function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+  function money(v){return v==null?'Não informado':Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});}
+  function today(){return window.CRMCaptacoesCore.normalizeDate(new Date());}
+  function central(){return typeof window.crmModoPlataforma==='function'&&window.crmModoPlataforma();}
+  function identity(){var u=window.CRMAuth&&CRMAuth.current(),s=window.CRMPlatform&&CRMPlatform.state;return (u&&u.id||'locked')+'|'+(central()&&s?s.companyId||'':'local');}
+  function permitted(){
+    if(!window.CRMAuth||!CRMAuth.current())return false;
+    if(!central())return true;
+    var p=window.CRMPlatform,s=p&&p.state;
+    return !!(s&&s.ready&&s.user&&s.companyId&&p.canAction&&p.canAction('cadastro','view')&&p.canAction('relatorios','view'));
+  }
+  function visible(){return $('tab-relatorios')&&$('tab-relatorios').classList.contains('active')&&window._relVisaoAtual==='captacoes';}
+  function clear(){state.report=null;state.page=1;['capi-kpis','capi-cities','capi-neighborhoods','capi-types','capi-table','capi-pages','capi-warnings'].forEach(function(id){if($(id))$(id).innerHTML='';});if($('capi-status'))$('capi-status').textContent='';}
+  function mount(){
+    if($('rel-captacoes-inventario'))return;
+    var before=$('rel-captacoes-automaticas')||$('rel-captacoes-externas');if(!before)return;
+    var host=document.createElement('section');host.id='rel-captacoes-inventario';host.className='card rel-view rel-captacoes';host.style.marginTop='18px';
+    host.innerHTML='<style>.capi-filters{display:flex;align-items:end;gap:10px;flex-wrap:wrap;margin:16px 0}.capi-filters label{min-width:130px;max-width:220px;flex:1}.capi-filters label[hidden]{display:none}.capi-groups{display:grid;grid-template-columns:1fr;gap:12px;margin:18px 0}.capi-groups h4{margin:0 0 10px;font-size:.95rem}.capi-groups .table-wrap{max-height:320px}.capi-totals{font-weight:700;background:#eff5f9}.capi-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}#rel-captacoes-inventario .cap2-info{overflow-wrap:anywhere}@media(min-width:1300px){.capi-groups{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:600px){.capi-kpis{grid-template-columns:1fr}.capi-filters label{min-width:100px}}</style><div class="card-header">🏘️ Relatório de Captações de Imóveis</div><div class="card-body cap2"><div class="cap2-head"><div><h3>Imóveis captados — venda e locação</h3><p class="cap2-muted">Consulta automática dos cadastros de imóveis disponíveis na sua base, pela data original de cadastro.</p></div><button class="btn btn-primary" type="button" id="capi-refresh">Atualizar captações</button></div><div class="capi-filters"><label>Período<select id="capi-mode"><option value="month">Mês e ano</option><option value="year">Ano completo</option><option value="all">Todo o histórico</option></select></label><label id="capi-month-wrap">Mês<select id="capi-month"></select></label><label id="capi-year-wrap">Ano<input id="capi-year" type="number" min="1900" max="9999" step="1"></label></div><p id="capi-status" role="status" aria-live="polite" class="cap2-info"></p><div id="capi-kpis" class="cap2-kpis capi-kpis"></div><p class="cap2-muted">Imóveis de venda e locação contam uma única vez na quantidade. Preços de venda e aluguéis mensais são totalizados separadamente; estes valores não são receita, comissão ou bonificação.</p><div id="capi-warnings" role="status" class="cap2-muted"></div><div class="capi-groups"><section><h4>Quantidade por cidade</h4><div id="capi-cities" class="table-wrap"></div></section><section><h4>Quantidade por bairro e cidade</h4><div id="capi-neighborhoods" class="table-wrap"></div></section><section><h4>Quantidade por tipo de imóvel</h4><div id="capi-types" class="table-wrap"></div></section></div><h3 style="font-size:1rem;margin:18px 0 10px">Imóveis captados no período</h3><div id="capi-table" class="table-wrap"></div><div id="capi-pages" class="cap2-actions" style="justify-content:space-between;margin-top:10px"></div><p class="cap2-muted">Cadastros removidos da base atual não são reconstruídos neste resumo. O histórico auditado e as regras de bonificação por locação permanecem no relatório abaixo, com filtros próprios.</p></div>';
+    before.parentNode.insertBefore(host,before);
+    var names=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+    $('capi-month').innerHTML=names.map(function(name,i){return '<option value="'+String(i+1).padStart(2,'0')+'">'+name+'</option>';}).join('');
+    $('capi-month').value=today().slice(5,7);$('capi-year').value=today().slice(0,4);
+    host.addEventListener('change',function(e){if(e.target.closest('.capi-filters')){state.page=1;render();}});
+    $('capi-refresh').onclick=function(){state.page=1;render();};
+    $('capi-pages').onclick=function(e){var button=e.target.closest('[data-capi-page]');if(button){state.page+=Number(button.dataset.capiPage);table();}};
+  }
+  function groupTable(id,rows,neighborhood){
+    var label=neighborhood?'Bairro / Cidade':id==='capi-cities'?'Cidade':'Tipo';
+    $(id).innerHTML='<table><thead><tr><th>'+label+'</th><th>Qtd.</th><th>Venda</th><th>Locação/mês</th></tr></thead><tbody>'+rows.map(function(g){return '<tr><td>'+esc(g.nome)+(neighborhood?'<br><small>'+esc(g.cidade)+'</small>':'')+'</td><td>'+g.quantidade+'</td><td>'+money(g.valorVenda)+'</td><td>'+money(g.valorLocacao)+'</td></tr>';}).join('')+'</tbody><tfoot><tr class="capi-totals"><th>Total</th><td>'+state.report.totals.quantidade+'</td><td>'+money(state.report.totals.valorVenda)+'</td><td>'+money(state.report.totals.valorLocacao)+'</td></tr></tfoot></table>';
+  }
+  function table(){
+    if(!permitted()||state.owner!==identity()){clear();return;}
+    var report=state.report;if(!report)return;var rows=report.entries,pages=Math.max(1,Math.ceil(rows.length/50));state.page=Math.min(pages,Math.max(1,state.page));
+    $('capi-table').innerHTML='<table><thead><tr><th>Código</th><th>Cadastro original</th><th>Cidade</th><th>Bairro</th><th>Tipo</th><th>Operação</th><th>Valor de venda</th><th>Aluguel mensal</th></tr></thead><tbody>'+rows.slice((state.page-1)*50,state.page*50).map(function(e){return '<tr><td><b>'+esc(e.codigo)+'</b></td><td>'+esc(e.dataCadastro?e.dataCadastro.split('-').reverse().join('/'):'Não informada')+'</td><td>'+esc(e.cidade)+'</td><td>'+esc(e.bairro)+'</td><td>'+esc(e.tipo)+'</td><td>'+esc(e.op)+'</td><td>'+money(e.valorVenda)+'</td><td>'+money(e.valorLocacao)+'</td></tr>';}).join('')+'</tbody><tfoot><tr class="capi-totals"><th colspan="6">Total do período · '+rows.length+' imóvel(is)</th><td>'+money(report.totals.valorVenda)+'</td><td>'+money(report.totals.valorLocacao)+'</td></tr></tfoot></table>'+(rows.length?'':'<p style="padding:16px">Nenhum imóvel cadastrado no período selecionado.</p>');
+    $('capi-pages').innerHTML='<button class="btn btn-secondary" type="button" data-capi-page="-1" '+(state.page===1?'disabled':'')+'>Anterior</button><span>'+state.page+' / '+pages+' · '+rows.length+' imóvel(is)</span><button class="btn btn-secondary" type="button" data-capi-page="1" '+(state.page===pages?'disabled':'')+'>Próxima</button>';
+  }
+  function render(){
+    mount();if(!$('capi-status'))return;
+    var owner=identity();if(owner!==state.owner){clear();state.owner=owner;}
+    if(!permitted()){clear();$('capi-status').textContent='Acesse uma base liberada com permissão para Imóveis e Relatórios para consultar as captações.';return;}
+    if(!visible())return;
+    var mode=$('capi-mode').value;$('capi-month-wrap').hidden=mode!=='month';$('capi-year-wrap').hidden=mode==='all';
+    try{
+      if(window._DB_CARREGAMENTO_PENDENTE||central()&&CRMPlatform.state.pending)throw Error('Aguarde a sincronização da base terminar e atualize o relatório.');
+      var report=API.build(window.DB&&DB.imoveis||[],{mode:mode,month:mode==='month'?$('capi-year').value+'-'+$('capi-month').value:'',year:mode!=='all'?$('capi-year').value:''},{today:today()});
+      state.report=report;
+      var t=report.totals,cards=[['Imóveis captados',t.quantidade,t.venda+' para venda · '+t.locacao+' para locação'],['Valor total de venda',money(t.valorVenda),t.semValorVenda+' cadastro(s) de venda sem valor válido'],['Aluguéis mensais somados',money(t.valorLocacao),t.semValorLocacao+' cadastro(s) de locação sem valor válido']];
+      $('capi-kpis').innerHTML=cards.map(function(x){return '<div class="cap2-kpi"><span>'+esc(x[0])+'</span><strong>'+esc(x[1])+'</strong><small class="cap2-muted">'+esc(x[2])+'</small></div>';}).join('');
+      $('capi-status').textContent='Período: '+(report.period.inicio?report.period.inicio.split('-').reverse().join('/')+' a '+report.period.fim.split('-').reverse().join('/'):'Todo o histórico cadastrado')+' · '+(central()?'Dados da base autenticada carregada no CRM':'Consulta da base local')+' · Totais descritivos calculados nesta tela.';
+      $('capi-warnings').innerHTML=report.warnings.length?'<details><summary>Conferir '+report.warnings.length+' aviso(s) de qualidade dos dados</summary><ul>'+report.warnings.map(function(w){return '<li>'+esc(w)+'</li>';}).join('')+'</ul>':'';
+      groupTable('capi-cities',report.cities,false);groupTable('capi-neighborhoods',report.neighborhoods,true);groupTable('capi-types',report.types,false);table();
+    }catch(e){clear();$('capi-status').textContent=e.message||'Não foi possível gerar o relatório de captações.';}
+  }
+  API.mount=mount;API.render=render;API.clear=clear;
+})();
+</script>
 <script data-crm-captacoes="2">
 /* Relatório automático de captações. Valores oficiais somente pela API autenticada. */
 (function(){
@@ -20807,6 +20922,7 @@ window.addEventListener('beforeunload',crmBackupAntesDeFechar);
   function error(message){clearReport();$('cap2-status').textContent='Relatório não confirmado. Nenhum valor foi disponibilizado.';$('cap2-error').className='cap2-error';$('cap2-error').textContent=message;}
   async function render(){
     mount();if(!$('cap2-status'))return;
+    if(window.CRMCaptacoesInventario)CRMCaptacoesInventario.render();
     if(S.identity!==identity()){S.identity=identity();clearReport();$('cap2-broker').innerHTML='<option value="">Todos os corretores</option>';}
     if(!canRead()){error('Seu perfil precisa de acesso a Imóveis, Relatórios e Financeiro para consultar as bonificações.');return;}
     if(!reportVisible())return;
@@ -20853,13 +20969,12 @@ window.addEventListener('beforeunload',crmBackupAntesDeFechar);
   var oldClear=window.limparFormImovel;window.limparFormImovel=function(){var result=oldClear.apply(this,arguments);setupForm('f',null);return result;};
   var oldApply=window._aplicarSnapshotDB;window._aplicarSnapshotDB=function(){var result=oldApply.apply(this,arguments);invalidate();schedule();return result;};
   var oldShow=window.showTab;window.showTab=function(id){var result=oldShow.apply(this,arguments);if(id==='cadastro'&&S.formIdentity!==identity())setupForm('f',null);return result;};
-  var oldLogout=CRMAuth.sair;if(typeof oldLogout==='function')CRMAuth.sair=function(){S.request++;clearReport();S.identity=null;invalidate();if($('cap2-broker'))$('cap2-broker').innerHTML='<option value="">Todos os corretores</option>';return oldLogout.apply(this,arguments);};
+  var oldLogout=CRMAuth.sair;if(typeof oldLogout==='function')CRMAuth.sair=function(){S.request++;clearReport();if(window.CRMCaptacoesInventario)CRMCaptacoesInventario.clear();S.identity=null;invalidate();if($('cap2-broker'))$('cap2-broker').innerHTML='<option value="">Todos os corretores</option>';return oldLogout.apply(this,arguments);};
   window.renderBonusCaptacao=function(){schedule();};
   window.CRMCaptacoes={render:render,state:S,syncLocal:syncLocal,setupForm:setupForm,getReport:getReport,invalidate:invalidate,canRead:canRead,central:central,today:today,prepareBackup:function(){return prepareLocal(false);}};
   setInterval(function(){if(central()&&document.visibilityState==='visible'&&reportVisible()&&canRead())render();},60000);
-  mount();setupForm('f',null);if(reportVisible())render();
+  mount();if(window.CRMCaptacoesInventario)CRMCaptacoesInventario.mount();setupForm('f',null);if(reportVisible())render();
 })();
-
 </script>
 <script data-crm-capfinance="1">
 /* Bonificações virtuais: a mesma origem de Captações, sem lançamentos duplicados. */
