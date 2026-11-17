@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CRM SGI — Sistema de Gerenciamento de Imóveis</title>
-<meta name="application-version" content="2026.11.14.1">
-<meta name="last-modified" content="2026-11-14">
+<meta name="application-version" content="2026.11.17.1">
+<meta name="last-modified" content="2026-11-17">
 <link rel="icon" type="image/png" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2072%2072%22%3E%3Crect%20width%3D%2272%22%20height%3D%2272%22%20rx%3D%2214%22%20fill%3D%22%23142f44%22%2F%3E%3Ctext%20x%3D%2236%22%20y%3D%2244%22%20text-anchor%3D%22middle%22%20font-family%3D%22Arial%22%20font-size%3D%2222%22%20font-weight%3D%22bold%22%20fill%3D%22white%22%3ECRM%3C%2Ftext%3E%3C%2Fsvg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1244,7 +1244,7 @@ body.auth-locked #auth-screen{display:flex}
         <img src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2072%2072%22%3E%3Crect%20width%3D%2272%22%20height%3D%2272%22%20rx%3D%2214%22%20fill%3D%22%23142f44%22%2F%3E%3Ctext%20x%3D%2236%22%20y%3D%2244%22%20text-anchor%3D%22middle%22%20font-family%3D%22Arial%22%20font-size%3D%2222%22%20font-weight%3D%22bold%22%20fill%3D%22white%22%3ECRM%3C%2Ftext%3E%3C%2Fsvg%3E" alt="CRM Imóveis" width="72" height="72" decoding="async" onerror="this.onerror=null;this.style.display='none'">
         <h1>CRM Imóveis</h1>
         <p>Gestão imobiliária, atendimento, captação, comissões e relacionamento em um único sistema.</p>
-        <span class="auth-version" title="Publicação de imóveis integrada ao CRM; canal comercial de mensagens permanece desligado">Versão 2026.11.14.1 · Atualizado em 14/11/2026</span>
+        <span class="auth-version" title="Auditoria de cálculos, busca, segurança, backup e sincronização; canal comercial de mensagens permanece desligado">Versão 2026.11.17.1 · Atualizado em 17/11/2026</span>
       </div>
       <small>Acesso individual e dados separados por usuário.</small>
     </section>
@@ -1338,7 +1338,7 @@ body.auth-locked #auth-screen{display:flex}
   <div class="header-title">
     <h1>Sistema de Gerenciamento de Imóveis</h1>
     <p>Fernando · Consultor Imobiliário · CRM · Relatórios</p>
-    <span id="system-version" class="system-version-badge" title="Data da última alteração do sistema">Versão 2026.11.14.1 · 14/11/2026</span>
+    <span id="system-version" class="system-version-badge" title="Data da última alteração do sistema">Versão 2026.11.17.1 · 17/11/2026</span>
   </div>
   <div class="backup-bar">
     <button class="btn-backup" onclick="gerarBackup()" title="Salvar todos os dados em arquivo JSON">💾 Backup</button>
@@ -4414,14 +4414,50 @@ function authSair() {
   crmBackupSaidaAbrir('logout');
 }
 
-function authConcluirSaidaComBackup() {
-  if (crmBackupSaidaPendente() || crmSaidaBackup.busy) { crmBackupSaidaAbrir('logout'); return; }
-  try { _salvarDBArquivoLocalAgora("sair"); } catch(e) {}
-  try { if (typeof salvarDB === "function") salvarDB(); } catch(e) {}
-  sessionStorage.removeItem(CRMAuth.sessionKey);
-  try { sessionStorage.removeItem(CRMAuth.centralSessionKey); } catch(e) {}
-  try { localStorage.removeItem(CRMAuth.sessionKey); } catch(e) {}
-  setTimeout(function(){ location.reload(); }, 250);
+async function authConcluirSaidaComBackup() {
+  if (crmSaidaBackup.busy) { crmBackupSaidaAbrir('logout'); return false; }
+  var contexto = crmBackupContexto();
+  if (!contexto.central && crmBackupSaidaPendente()) { crmBackupSaidaAbrir('logout'); return false; }
+  crmSaidaBackup.busy = true;
+  try {
+    if (contexto.central) {
+      crmBackupSaidaMensagem('Aguardando a confirmação das gravações antes de encerrar a sessão…');
+      crmBackupSaidaControles();
+      await crmBackupAguardarServidor(contexto);
+      if (crmBackupSaidaPendente()) {
+        crmBackupSaidaMensagem('Os dados mudaram durante a sincronização. Salve e confira uma nova cópia antes de sair.');
+        return false;
+      }
+      // Tokens stay available until all submitted saves have been confirmed.
+      CRMPlatform.state.ready = false;
+      if (window.CRMMedia && typeof CRMMedia.clear === 'function') CRMMedia.clear();
+    } else {
+      try { _salvarDBArquivoLocalAgora("sair"); } catch(e) {}
+      try { if (typeof salvarDB === "function") salvarDB(); } catch(e) {}
+    }
+    sessionStorage.removeItem(CRMAuth.sessionKey);
+    try { sessionStorage.removeItem(CRMAuth.centralSessionKey); } catch(e) {}
+    try { localStorage.removeItem(CRMAuth.sessionKey); } catch(e) {}
+    if (contexto.central) {
+      // End the in-memory identity as well. Otherwise beforeunload can treat the
+      // verified backup as pending after ready=false and block the logout reload.
+      CRMPlatform.state.user = null;
+      CRMPlatform.state.subscription = null;
+      CRMPlatform.state.companyId = '';
+      CRMPlatform.state.ackData = null;
+      crmSaidaBackup.confirmed = null;
+      crmSaidaBackup.pending = null;
+      if (typeof authAplicarUI === 'function') authAplicarUI();
+    }
+    setTimeout(function(){ location.reload(); }, 250);
+    return true;
+  } catch(e) {
+    crmBackupSaidaMensagem('A saída não foi concluída: ' + e.message + ' Sua sessão foi mantida.');
+    return false;
+  } finally {
+    crmSaidaBackup.busy = false;
+    crmBackupSaidaControles();
+  }
 }
 
 
@@ -4719,7 +4755,7 @@ var _DB_CARREGAMENTO_FINALIZADO = false;
 
 function _finalizarCarregamentoPersistencia() {
   if (_DB_CARREGAMENTO_FINALIZADO) return;
-  try { if (typeof crmMigrarTodasTarefasParaCancelada === "function") crmMigrarTodasTarefasParaCancelada(); } catch(e) { console.warn("Falha ao migrar tarefas para Cancelada:", e); }
+  // O cancelamento em massa de 2026 era pontual; não deve rodar ao abrir/importar uma base.
   try { if (typeof crmMigrarContatosWhatsappParaLeadNovo === "function") crmMigrarContatosWhatsappParaLeadNovo(); } catch(e) { console.warn("Falha ao migrar contatos do WhatsApp para Lead Novo:", e); }
   // A fase Lead Novo voltou a ser permanente; a migração antiga permanece apenas como histórico e não é mais executada.
   try { if (typeof crmMigrarUnificarLocalizacoes20260825 === "function") crmMigrarUnificarLocalizacoes20260825(); } catch(e) { console.warn("Falha ao unificar cidades, bairros e condomínios:", e); }
@@ -5248,8 +5284,9 @@ var CRM_BACKUP_30MIN_INTERVALO = 30 * 60 * 1000;
 var CRM_BACKUP_30MIN_SLOTS = 8;
 var _crmBackup30MinExecutando = false;
 
-function _crmBackup30MinMetaKey() {
-  return 'crm_backup_30min_meta_v1' + _AUTH_DATA_SUFFIX;
+function _crmBackup30MinMetaKey(contexto) {
+  contexto = contexto || crmBackupContexto();
+  return contexto.central ? 'crm_backup_30min_meta_v2' + crmBackupEscopo(contexto) : 'crm_backup_30min_meta_v1' + _AUTH_DATA_SUFFIX;
 }
 
 function crmBackup30MinAtualizarStatus(meta) {
@@ -5267,17 +5304,32 @@ function crmBackup30MinAtualizarStatus(meta) {
   el.title = 'Último backup automático: ' + data.toLocaleString('pt-BR') + '. São mantidas 8 cópias rotativas no banco deste navegador.';
 }
 
-function _salvarBackup30MinIndexedDB(payload, callback) {
+function _abrirBackup30MinIndexedDB(contexto, callback) {
+  if (!contexto.central) { _abrirDBIndexedDB(callback); return; }
+  if (!window.indexedDB || !crmBackupContextoValido(contexto, false)) { callback(null); return; }
+  var terminado = false;
+  function terminar(db) { if (terminado) { if (db) db.close(); return; } terminado = true; callback(db); }
+  try {
+    var req = indexedDB.open('imoveis_crm_backup_30min_v2' + crmBackupEscopo(contexto), 1);
+    req.onupgradeneeded = function(ev) { var db=ev.target.result;if(!db.objectStoreNames.contains(_DB_IDB_STORE))db.createObjectStore(_DB_IDB_STORE); };
+    req.onsuccess = function(ev) { terminar(ev.target.result); };
+    req.onerror = req.onblocked = function() { terminar(null); };
+  } catch(e) { terminar(null); }
+}
+
+function _salvarBackup30MinIndexedDB(payload, callback, contexto) {
+  contexto = contexto || crmBackupContexto();
   if (!window.indexedDB) { if (callback) callback(false); return false; }
-  _abrirDBIndexedDB(function(db) {
+  _abrirBackup30MinIndexedDB(contexto, function(db) {
     if (!db) { if (callback) callback(false); return; }
+    if (!crmBackupContextoValido(contexto, false)) { db.close();if(callback)callback(false);return; }
     try {
       var tx = db.transaction(_DB_IDB_STORE, 'readwrite');
       var store = tx.objectStore(_DB_IDB_STORE);
       var slot = Math.floor(Date.parse(payload.salvoEm) / CRM_BACKUP_30MIN_INTERVALO) % CRM_BACKUP_30MIN_SLOTS;
       store.put(payload, 'backup_30min_latest');
       store.put(payload, 'backup_30min_' + slot);
-      tx.oncomplete = function(){ db.close(); if (callback) callback(true); };
+      tx.oncomplete = function(){ db.close(); if (callback) callback(crmBackupContextoValido(contexto, false)); };
       tx.onerror = tx.onabort = function(){ db.close(); if (callback) callback(false); };
     } catch(e) {
       console.warn('backup automático de 30 minutos falhou:', e);
@@ -5290,29 +5342,35 @@ function _salvarBackup30MinIndexedDB(payload, callback) {
 
 function crmBackup30MinExecutar(forcar) {
   try { _atualizarChavesPersistencia(); } catch(_eChaves) {}
-  if (_crmBackup30MinExecutando || _DB_CARREGAMENTO_PENDENTE || !_persistenciaAutenticada()) return false;
+  var contextoBackup = crmBackupContexto();
+  if (_crmBackup30MinExecutando || !crmBackupContextoValido(contextoBackup, true)) return false;
   if (!DB || !_snapshotTemDados(_snapshotDB(true))) return false;
   var anterior = null;
-  try { anterior = JSON.parse(localStorage.getItem(_crmBackup30MinMetaKey()) || 'null'); } catch(e) {}
+  try { anterior = JSON.parse(localStorage.getItem(_crmBackup30MinMetaKey(contextoBackup)) || 'null'); } catch(e) {}
   if (!forcar && anterior && anterior.salvoEm && Date.now() - Date.parse(anterior.salvoEm) < CRM_BACKUP_30MIN_INTERVALO) {
     crmBackup30MinAtualizarStatus(anterior);
     return false;
   }
   _crmBackup30MinExecutando = true;
-  try { salvarDB(); } catch(eSalvar) { console.warn('Falha ao salvar a base antes do backup automático:', eSalvar); }
-  var payload = {dados:_snapshotDB(true), salvoEm:new Date().toISOString(), tipo:'backup_automatico_30_minutos', versao:1};
-  var contextoBackup={user:typeof crmBackupUsuario==='function'?crmBackupUsuario():'',company:window.CRMPlatform&&CRMPlatform.state.companyId};
+  var payload;
+  function falhar(erro) {
+    _crmBackup30MinExecutando = false;
+    if (!crmBackupContextoIgual(contextoBackup, crmBackupContexto())) return;
+    var status=document.getElementById('backup-auto-status');if(status){status.textContent='⚠️ Auto: backup incompleto';status.title='O backup anterior foi preservado. Não foi possível confirmar uma cópia completa: '+erro.message;}
+    console.warn('Backup automático completo não confirmado:',erro.message);
+  }
   function gravarBackupCompleto(){
-    if(contextoBackup.user!==(typeof crmBackupUsuario==='function'?crmBackupUsuario():'')||contextoBackup.company!==(window.CRMPlatform&&CRMPlatform.state.companyId))throw Error('A sessão ou empresa mudou durante o backup automático.');
+    if (!crmBackupContextoValido(contextoBackup, false)) throw Error('A sessão, empresa ou gravação pendente mudou durante o backup automático.');
     return _salvarBackup30MinIndexedDB(payload, function(ok){
     _crmBackup30MinExecutando = false;
+    if (!crmBackupContextoIgual(contextoBackup, crmBackupContexto())) return;
     if (!ok) {
       console.warn('Não foi possível concluir o backup automático de 30 minutos.');
       var statusFalha=document.getElementById('backup-auto-status');if(statusFalha){statusFalha.textContent='⚠️ Auto: backup não salvo';statusFalha.title='O backup anterior foi preservado. Confira o espaço disponível no navegador e gere uma cópia pelo botão Backup.';}
       return;
     }
     var meta = {salvoEm:payload.salvoEm, slots:CRM_BACKUP_30MIN_SLOTS, destino:'indexedDB'};
-    try { localStorage.setItem(_crmBackup30MinMetaKey(), JSON.stringify(meta)); } catch(eMeta) {}
+    try { localStorage.setItem(_crmBackup30MinMetaKey(contextoBackup), JSON.stringify(meta)); } catch(eMeta) {}
     crmBackup30MinAtualizarStatus(meta);
     if (crmServicoLocalDisponivel()) {
       try {
@@ -5321,17 +5379,23 @@ function crmBackup30MinExecutar(forcar) {
         _salvarBackupNoHelper(JSON.stringify(copiaArquivo, null, 2), nome);
       } catch(eArquivo) { console.warn('Cópia de 30 minutos em arquivo indisponível:', eArquivo); }
     }
-    });
+    }, contextoBackup);
   }
-  if(window.CRMMedia&&CRMMedia.hasPrivateMedia(payload.dados)){
-    CRMMedia.materializeSnapshot(payload.dados).then(function(dados){payload.dados=dados;payload.midiasIncluidas=true;gravarBackupCompleto();}).catch(function(erro){
-      _crmBackup30MinExecutando=false;
-      var status=document.getElementById('backup-auto-status');if(status){status.textContent='⚠️ Auto: backup incompleto';status.title='O backup anterior foi preservado. Não foi possível incluir todas as fotos: '+erro.message;}
-      console.warn('Backup automático completo não confirmado:',erro.message);
-    });
+  function prepararBackup() {
+    if (!crmBackupContextoValido(contextoBackup, false)) throw Error('Confirme a sessão e aguarde o término das gravações antes do backup.');
+    if (!contextoBackup.central) { try { salvarDB(); } catch(eSalvar) { console.warn('Falha ao salvar a base antes do backup automático:', eSalvar); } }
+    payload = {dados:JSON.parse(JSON.stringify(_snapshotDB(true))), salvoEm:new Date().toISOString(), tipo:'backup_automatico_30_minutos', versao:1, contexto:contextoBackup};
+    if(window.CRMMedia&&CRMMedia.hasPrivateMedia(payload.dados)){
+      CRMMedia.materializeSnapshot(payload.dados).then(function(dados){payload.dados=dados;payload.midiasIncluidas=true;gravarBackupCompleto();}).catch(falhar);
+      return true;
+    }
+    return gravarBackupCompleto();
+  }
+  if (contextoBackup.central) {
+    crmBackupAguardarServidor(contextoBackup).then(prepararBackup).catch(falhar);
     return true;
   }
-  try{return gravarBackupCompleto();}catch(erro){_crmBackup30MinExecutando=false;return false;}
+  try{return prepararBackup();}catch(erro){falhar(erro);return false;}
 }
 
 function _lerDBIndexedDB(callback) {
@@ -5974,20 +6038,21 @@ function parseBr(s) {
   var p = s.split("/");
   return p.length === 3 ? new Date(parseInt(p[2]), parseInt(p[1])-1, parseInt(p[0])) : null;
 }
-function codTag(c)  { return '<span class="cod">'+c+'</span>'; }
+function codTag(c)  { return '<span class="cod">'+crmEscAttr(c)+'</span>'; }
 function bDisp(d) {
   var m = {Disponível:"bd",Indisponível:"bi","Em negociação":"bn",Reservado:"br",Alugado:"bn",Vendido:"bi"};
-  return '<span class="badge '+(m[d]||"bd")+'">'+d+'</span>';
+  return '<span class="badge '+(m[d]||"bd")+'">'+crmEscAttr(d)+'</span>';
 }
 function bOp(op) {
   var rotulo=op==="Venda"?"Venda":(op==="Locação"?"Locação":(crmImovelOperacaoDupla(op)?"Locação e Venda":"A definir"));
   return '<span class="badge '+(op==="Venda"?"bv":"bl")+'">'+rotulo+'</span>';
 }
 function endCell(im) {
-  var full = im.rua + ", " + im.bairro + " – " + im.cidade;
-  var cond = im.cond ? ' <span style="font-size:.7rem;background:#dbeafe;color:#1e40af;border-radius:4px;padding:1px 5px;font-weight:700">🏢 '+im.cond+'</span>' : '';
-  return '<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+full+'">'+
-    im.rua+'<br><small style="color:#64748B">'+im.bairro+' – '+im.cidade+'</small>'+cond+'</td>';
+  im = im || {};
+  var full = [im.rua || "", im.bairro || "", im.cidade || ""].join(", ");
+  var cond = im.cond ? ' <span style="font-size:.7rem;background:#dbeafe;color:#1e40af;border-radius:4px;padding:1px 5px;font-weight:700">🏢 '+crmEscAttr(im.cond)+'</span>' : '';
+  return '<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+crmEscAttr(full)+'">'+
+    crmEscAttr(im.rua)+'<br><small style="color:#64748B">'+crmEscAttr(im.bairro)+' – '+crmEscAttr(im.cidade)+'</small>'+cond+'</td>';
 }
 
 var MESES = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho",
@@ -6466,9 +6531,8 @@ function crmMetaNegocioEstaPerdido(n) {
     try { texto = texto.normalize("NFD").replace(/[\u0300-\u036f]/g, ""); } catch(e) {}
     return texto.replace(/\s+/g, " ");
   };
-  if (normalizar(n.followStage) === "perdido") return true;
   var estadosPerdidos = ["perdido", "perdidos", "lead perdido", "leads perdidos"];
-  return [n.etapa, n.status, n.fase, n.situacao].some(function(valor) {
+  return [n.followStage, n.etapa, n.status, n.fase, n.situacao].some(function(valor) {
     return estadosPerdidos.indexOf(normalizar(valor)) >= 0;
   });
 }
@@ -6663,12 +6727,13 @@ function crmComissaoControleAtual(n) {
 }
 
 function acoes(tipo, id) {
+  var argumento = crmEscJsAttr(id);
   if (tipo === "im") {
-    return '<button class="btn btn-info" style="padding:4px 10px;font-size:.78rem" onclick="editarImovel(\''+id+'\')" title="Editar imóvel">✏️</button> '+
-           '<button class="btn btn-primary" style="padding:4px 10px;font-size:.78rem" onclick="abrirFollowupProprietarioPorImovel(\''+id+'\')" title="Follow-up do proprietário">📞</button> '+
-           '<button class="btn btn-danger" style="padding:4px 10px;font-size:.78rem" onclick="confirmarExcluirImovel(\''+id+'\')" title="Excluir imóvel">🗑️</button>';
+    return '<button class="btn btn-info" style="padding:4px 10px;font-size:.78rem" onclick="editarImovel('+argumento+')" title="Editar imóvel">✏️</button> '+
+           '<button class="btn btn-primary" style="padding:4px 10px;font-size:.78rem" onclick="abrirFollowupProprietarioPorImovel('+argumento+')" title="Follow-up do proprietário">📞</button> '+
+           '<button class="btn btn-danger" style="padding:4px 10px;font-size:.78rem" onclick="confirmarExcluirImovel('+argumento+')" title="Excluir imóvel">🗑️</button>';
   }
-  return '<button class="btn btn-info" style="padding:4px 10px;font-size:.78rem" onclick="abrirNegocio(\''+id+'\')">Abrir</button>';
+  return '<button class="btn btn-info" style="padding:4px 10px;font-size:.78rem" onclick="abrirNegocio('+argumento+')">Abrir</button>';
 }
 
 // ═══════════════════════════════════════════
@@ -6831,7 +6896,7 @@ function crmNegocioTelefoneBuscaMatch(n, termo) {
     }).map(function(chave){
       var valor=registro[chave];
       return typeof valor==="string"||typeof valor==="number"?valor:null;
-    }).filter(Boolean);
+    }).filter(function(valor){return crmTelefoneBuscaMatch(valor,valor);});
   }
   var telefones=telefonesDoRegistro(n);
   // Um número próprio nunca deve herdar o telefone de um contato homônimo
@@ -7607,13 +7672,13 @@ function renderPrevisoes() {
     tr.innerHTML =
       "<td>"+_prevBadge(p.status||"Desocupando")+"</td>"+
       "<td>"+codTag(p.codigo)+"</td>"+
-      "<td>"+p.tipo+"</td>"+
-      "<td>"+p.bairro+"</td>"+
+      "<td>"+crmEscAttr(p.tipo)+"</td>"+
+      "<td>"+crmEscAttr(p.bairro)+"</td>"+
       "<td style='font-weight:700;color:var(--azul)'>"+fmtV2(p.valor||0)+"</td>"+
       "<td style='font-size:.78rem;font-weight:700;color:"+ds.cor+"'>"+ds.txt+"</td>"+
-      "<td style='font-size:.78rem;color:#64748B;max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis' title='"+(p.obs||"")+"'>"+(p.obs||"-")+"</td>"+
-      "<td><button class='btn btn-info' style='padding:5px 10px;font-size:.78rem' onclick=\"editarPrevisao('"+p.id+"')\">✏️</button> "+
-      "<button class='btn btn-danger' style='padding:5px 10px;font-size:.78rem' onclick=\"excluirPrevisao('"+p.id+"')\">🗑️</button></td>";
+      "<td style='font-size:.78rem;color:#64748B;max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis' title='"+crmEscAttr(p.obs||"")+"'>"+crmEscAttr(p.obs||"-")+"</td>"+
+      "<td><button class='btn btn-info' style='padding:5px 10px;font-size:.78rem' onclick=\"editarPrevisao("+crmEscJsAttr(p.id)+")\">✏️</button> "+
+      "<button class='btn btn-danger' style='padding:5px 10px;font-size:.78rem' onclick=\"excluirPrevisao("+crmEscJsAttr(p.id)+")\">🗑️</button></td>";
     tbody.appendChild(tr);
   });
 }
@@ -8166,9 +8231,9 @@ function filtrar() {
     var tr = document.createElement("tr");
     tr.innerHTML =
       "<td>"+codTag(im.codigo)+"</td>"+
-      "<td>"+im.prop+"</td>"+
-      "<td>"+im.tel+"</td>"+
-      "<td>"+im.tipo+"</td>"+
+      "<td>"+crmEscAttr(im.prop)+"</td>"+
+      "<td>"+crmEscAttr(im.tel)+"</td>"+
+      "<td>"+crmEscAttr(im.tipo)+"</td>"+
       "<td>"+bOp(im.op)+"</td>"+
       "<td>"+crmFmtValoresImovel(im)+"</td>"+
       "<td>"+bDisp(im.disp)+"</td>"+
@@ -8200,7 +8265,7 @@ function buscaRapida() {
   var qn = q.replace(/\D/g,"");
   var res = DB.imoveis.filter(function(im) {
     return [im.prop,im.tel,im.rua,im.bairro,im.cidade].join(" ").toLowerCase().includes(q) ||
-           (qn && im.tel.replace(/\D/g,"").includes(qn));
+           (qn && String(im.tel == null ? "" : im.tel).replace(/\D/g,"").includes(qn));
   });
   tbody.innerHTML = "";
   if (!res.length) { empty.style.display="block"; count.textContent=""; return; }
@@ -8208,7 +8273,7 @@ function buscaRapida() {
   count.textContent = res.length + " resultado(s)";
   var safe = q.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
   var re   = new RegExp("("+safe+")","gi");
-  function hl(s) { return String(s||"").replace(re,'<mark style="background:#FEF08A;border-radius:2px;padding:0 2px">$1</mark>'); }
+  function hl(s) { return String(s == null ? "" : s).split(re).map(function(parte,i){return i%2 ? '<mark style="background:#FEF08A;border-radius:2px;padding:0 2px">'+crmEscAttr(parte)+'</mark>' : crmEscAttr(parte);}).join(""); }
   res.forEach(function(im) {
     var tr = document.createElement("tr");
     tr.innerHTML =
@@ -8216,7 +8281,7 @@ function buscaRapida() {
       "<td>"+hl(im.prop)+"</td>"+
       "<td>"+hl(im.tel)+"</td>"+
       "<td>"+hl(im.rua)+'<br><small style="color:#64748B">'+hl(im.bairro)+" – "+hl(im.cidade)+"</small></td>"+
-      "<td>"+im.tipo+"</td>"+
+      "<td>"+crmEscAttr(im.tipo)+"</td>"+
       "<td>"+bOp(im.op)+"</td>"+
       "<td>"+crmFmtValoresImovel(im)+"</td>"+
       "<td>"+bDisp(im.disp)+"</td>"+
@@ -9048,7 +9113,10 @@ function crmNotificarNovoImovelCompativel(im){
   if(leads.length) toast("DEU MATCH: novo imóvel compatível para "+leads.length+" lead(s). Veja os cards do CRM.");
 }
 function crmEscAttr(v){
-  return String(v == null ? "" : v).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  return String(v == null ? "" : v).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/'/g,"&#39;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+function crmEscJsAttr(v){
+  return crmEscAttr(JSON.stringify(String(v == null ? "" : v)).replace(/\u2028/g,"\\u2028").replace(/\u2029/g,"\\u2029"));
 }
 function crmAnalisarConversaCliente(txt,n){
   txt = String(txt || "");
@@ -11339,6 +11407,8 @@ function crmFollowupNormalizarSistema(){
     DB.negocios.forEach(function(n){
       if (!n) return;
       if (n.followPipeline) {
+        var stageLegado=String(n.followStage||"").trim().toLowerCase();
+        if (["perdido","perdidos","lead perdido","leads perdidos"].indexOf(stageLegado)>=0) n.followStage="perdido";
         if (/^t(?:6|7|8|9|10)$/.test(String(n.followStage || ""))) {
           n.followStage = "perdido";
           crmFollowupSincronizarPerdido(n.id, "Migração da régua antiga");
@@ -12257,7 +12327,7 @@ function abrirNegocio(id, preservarOrigemCliente) {
   if (dataEntregaChavesEl) dataEntregaChavesEl.value = n ? (n.dataEntregaChaves || n.dataChavesEntregues || "") : "";
   var chavesEntreguesEl = document.getElementById("n-chaves-entregues");
   if (chavesEntreguesEl) chavesEntreguesEl.checked = !!(n && n.chavesEntregues);
-  document.getElementById("n-obs").value     = n ? n.obs     : "";
+  document.getElementById("n-obs").value     = n && n.obs != null ? n.obs : "";
   var tagNovaEl = document.getElementById("n-tag-nova"); if (tagNovaEl) tagNovaEl.value = "";
   crmRenderTagsLead(n ? (n.tagsPersonalizadas||[]) : []);
   preencherQualificacaoModal(n);
@@ -16780,7 +16850,7 @@ function _relMatchOperacao(n, op) {
 }
 
 function _relNegocioGanho(n) {
-  return !!(n && !crmMetaNegocioEstaPerdido(n) && !finconCancelado(n) && (n.fechado || n.ganhoRegistrado || n.statusGanho === "Ganho"));
+  return !!(n && !crmMetaNegocioEstaPerdido(n) && !finconCancelado(n) && crmDataFechamentoNegocio(n));
 }
 
 function _relFechadosPeriodo() {
@@ -17233,7 +17303,17 @@ function finconCancelado(x){var s=x?[x.status,x.etapa,x.situacao,x.statusGanho,x
 function finconAdd(a,tipo,valor,data,origem,id){valor=Number(valor)||0;var d=finconData(data);if(valor<=0||!d)return;a.push({tipo:tipo,valor:valor,data:d,dataISO:d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'),mes:d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'),origem:origem||'',id:id||''})}
 function finconFluxoAtual(){return(document.getElementById('fincon-fluxo')||{}).value||'receber'}
 function finconTiposNegocio(n){var permitidos=['captacao','captacao-parceria','fechamento','fechamento-parceria','terceiros'],partes=(Array.isArray(n.part)?n.part:(n.part?[n.part]:[])).filter(function(x){return permitidos.indexOf(x)>=0});if(partes.length)return partes;return[n.op==='Locação'?'locacao':'venda']}
-function finconDistribuir(a,n,valor,data,origem,id){valor=Number(valor)||0;if(valor<=0||!data)return;var tipos=finconTiposNegocio(n),pesos=tipos.map(function(tipo){if(tipo==='venda'||tipo==='locacao')return 1;try{return Math.max(0,Number(comissao(crmValorComissao(n),n.op,[tipo]).val)||0)}catch(e){return 1}}),soma=pesos.reduce(function(s,v){return s+v},0)||tipos.length;tipos.forEach(function(tipo,i){finconAdd(a,tipo,valor*(pesos[i]||1)/soma,data,origem,id+(tipos.length>1?'-'+tipo:''))})}
+function finconDistribuir(a,n,valor,data,origem,id){
+  valor=Number(valor)||0;if(!isFinite(valor)||valor<=0||!data)return;
+  var tipos=finconTiposNegocio(n);if(!tipos.length)return;
+  var pesos=tipos.map(function(tipo){if(tipo==='venda'||tipo==='locacao')return 1;try{var peso=Number(comissao(crmValorComissao(n),n.op,[tipo]).val);return isFinite(peso)&&peso>0?peso:0;}catch(e){return 1;}});
+  var soma=pesos.reduce(function(s,v){return s+v;},0);
+  if(soma<=0){pesos=tipos.map(function(){return 1;});soma=tipos.length;}
+  var totalCentavos=Math.round(valor*100),quotas=pesos.map(function(p){return totalCentavos*p/soma;}),centavos=quotas.map(function(q){return Math.floor(q);});
+  var restante=totalCentavos-centavos.reduce(function(s,v){return s+v;},0),ordem=tipos.map(function(_,i){return i;}).sort(function(i,j){return (quotas[j]-centavos[j])-(quotas[i]-centavos[i])||i-j;});
+  for(var i=0;i<restante;i++)centavos[ordem[i%ordem.length]]++;
+  tipos.forEach(function(tipo,i){finconAdd(a,tipo,centavos[i]/100,data,origem,id+(tipos.length>1?'-'+tipo:''));});
+}
 function finconTransacoes(fluxo){var a=[];fluxo=fluxo||finconFluxoAtual();(DB.negocios||[]).forEach(function(n){if(!n||finconCancelado(n)||!_relNegocioGanho(n))return;var total=0;try{total=Number(crmComissaoControleAtual(n).val)||0}catch(e){try{total=Number(comissaoNegocio(n).val)||0}catch(_e){total=0}}var parcelas=Array.isArray(n.comParcelas)?n.comParcelas.filter(function(p){return p&&!finconCancelado(p)&&(Number(p.valor)||0)>0&&p.data}):[];var pago=parcelas.length?parcelas.reduce(function(s,p){return s+(Number(p.valor)||0)},0):(Number(n.comValPago)||0);if(fluxo==='receber'){var saldo=Math.max(0,total-pago);finconDistribuir(a,n,saldo,n.comPrev,'Comissão a receber',n.id)}else{if(parcelas.length)parcelas.forEach(function(p,i){finconDistribuir(a,n,p.valor,p.data,'Comissão recebida',n.id+'-P'+i)});else if(pago>0&&n.comDataRec)finconDistribuir(a,n,pago,n.comDataRec,'Comissão recebida',n.id);var cash=Array.isArray(n.comCashbackParcelas)?n.comCashbackParcelas:[];cash.forEach(function(x,i){if(!x||finconCancelado(x))return;finconAdd(a,'cashback',x.valor,x.data,'Cashback recebido',n.id+'-CB'+i)})}});(DB.captacoes||[]).forEach(function(c){if(!c||finconCancelado(c))return;var tipo=c.tipoComissao==='parceria'?'captacao-parceria':(c.tipoComissao==='terceiros'?'terceiros':'captacao'),res=typeof _captacaoResumo==='function'?_captacaoResumo(c):{total:Number(c.comissao)||0,recebido:0,saldo:Number(c.comissao)||0,recebimentos:c.recebimentos||[]};if(fluxo==='receber')finconAdd(a,tipo,res.saldo,c.dataPrev,'Comissão externa a receber',c.id);else(Array.isArray(res.recebimentos)?res.recebimentos:[]).forEach(function(p,i){if(p&&!finconCancelado(p))finconAdd(a,tipo,p.valor,p.data,'Comissão externa recebida',c.id+'-R'+i)})});return a}
 function finconHoje(){return new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date())}
 function finconMesAtual(){return finconHoje().slice(0,7)}
@@ -17289,7 +17369,7 @@ function kpiiaUnicos(a){return Array.from(new Set(a.filter(Boolean))).sort(funct
 function kpiiaCampo(n,lista){for(var i=0;i<lista.length;i++)if(kpiiaTexto(n[lista[i]]))return kpiiaTexto(n[lista[i]]);return''}
 function kpiiaPrimeiroContato(n){var ds=[];['primeiroAtendimentoEm','firstResponseAt','followLastContactAt','dataPrimeiroContato'].forEach(function(k){var d=kpiiaData(n[k]);if(d)ds.push(d)});[].concat(n.followLogs||[],n.atividadesNegocio||[],n.notasAtendimento||[]).forEach(function(x){var d=kpiiaData(x&& (x.data||x.criadoEm||x.createdAt));if(d)ds.push(d)});return ds.length?new Date(Math.min.apply(null,ds.map(function(d){return d.getTime()}))):null}
 function kpiiaVisitas(n){var a=[].concat(n.visitasHistorico||n.visitas||[]);(DB.tarefas||[]).forEach(function(t){if(String(t.negocio||t.negocioId||'')===String(n.id||'')&&kpiiaNorm(t.tipo).indexOf('visita')>=0)a.push(t)});return a}
-function kpiiaAnalisaNegocio(n){var etapa=kpiiaNorm(n.etapa||n.status), entrada=_relDataNegocioEntrada(n), contato=kpiiaPrimeiroContato(n), visitas=kpiiaVisitas(n);var agendada=visitas.length>0||etapa.indexOf('visita')>=0;var realizada=visitas.some(function(v){var z=kpiiaNorm((v.status||'')+' '+(v.impressoes||v.observacoes||''));return z.indexOf('conclu')>=0||z.indexOf('realiz')>=0||kpiiaTexto(v.impressoes||v.impressoesCliente)});var mql=Number(n.leadScore)>=50||/quente|morno|qualific|mql|visita|proposta|contrato|fechad|vendid|ganh/.test(kpiiaNorm((n.leadClass||'')+' '+etapa));var proposta=/proposta|contrato|fechad|vendid|ganh/.test(etapa)||[].concat(n.followLogs||[]).some(function(x){return kpiiaNorm(x.mensagem||x.descricao).indexOf('proposta')>=0});var fechamento=_relDataFechamento(n);var ganho=_relNegocioGanho(n)&&!!fechamento;var perdido=/perdid|descart|cancelad/.test(etapa)||!!n.motivoPerda;var respondeu=!!contato||mql||agendada||proposta||ganho;var docsIni=kpiiaData(n.propostaAceitaEm||n.dataAceiteProposta),docsFim=kpiiaData(n.documentacaoCompletaEm||n.dataDocumentacaoCompleta);var jurIni=kpiiaData(n.analiseCreditoInicioEm||n.analiseJuridicaInicioEm),jurFim=kpiiaData(n.analiseCreditoFimEm||n.analiseJuridicaFimEm||n.minutaEmitidaEm);return{n:n,entrada:entrada,contato:contato,tma:kpiiaMinutos(entrada,contato),corretor:kpiiaCampo(n,['corretor','responsavel','atendente','consultor'])||'Não informado',equipe:kpiiaCampo(n,['equipe','time'])||'Não informada',canal:kpiiaCampo(n,['origem','canal','portal','fonte'])||'Não informado',op:_relOperacaoDoItem(n)||'Não informado',categoria:kpiiaCampo(n,['categoriaImovel','tipoImovel','categoria','tipo'])||'Não informada',mql:mql,agendada:agendada,realizada:realizada,proposta:proposta,ganho:ganho,perdido:perdido,respondeu:respondeu,docs:kpiiaDias(docsIni,docsFim),jur:kpiiaDias(jurIni,jurFim),ciclo:ganho?kpiiaDias(entrada,fechamento):null,nps:isFinite(Number(n.nps))?Number(n.nps):null,csat:isFinite(Number(n.csat))?Number(n.csat):null,valor:crmValorFechado(n)||crmValorAnunciado(n)||0,receita:ganho?(comissaoNegocio(n)||0):0}}
+function kpiiaAnalisaNegocio(n){var etapa=kpiiaNorm(n.etapa||n.status), entrada=_relDataNegocioEntrada(n), contato=kpiiaPrimeiroContato(n), visitas=kpiiaVisitas(n);var agendada=visitas.length>0||etapa.indexOf('visita')>=0;var realizada=visitas.some(function(v){var z=kpiiaNorm((v.status||'')+' '+(v.impressoes||v.observacoes||''));return z.indexOf('conclu')>=0||z.indexOf('realiz')>=0||kpiiaTexto(v.impressoes||v.impressoesCliente)});var mql=Number(n.leadScore)>=50||/quente|morno|qualific|mql|visita|proposta|contrato|fechad|vendid|ganh/.test(kpiiaNorm((n.leadClass||'')+' '+etapa));var proposta=/proposta|contrato|fechad|vendid|ganh/.test(etapa)||[].concat(n.followLogs||[]).some(function(x){return kpiiaNorm(x.mensagem||x.descricao).indexOf('proposta')>=0});var fechamento=_relDataFechamento(n);var ganho=_relNegocioGanho(n)&&!!fechamento;var perdido=/perdid|descart|cancelad/.test(etapa)||!!n.motivoPerda;var respondeu=!!contato||mql||agendada||proposta||ganho;var docsIni=kpiiaData(n.propostaAceitaEm||n.dataAceiteProposta),docsFim=kpiiaData(n.documentacaoCompletaEm||n.dataDocumentacaoCompleta);var jurIni=kpiiaData(n.analiseCreditoInicioEm||n.analiseJuridicaInicioEm),jurFim=kpiiaData(n.analiseCreditoFimEm||n.analiseJuridicaFimEm||n.minutaEmitidaEm);return{n:n,entrada:entrada,contato:contato,tma:kpiiaMinutos(entrada,contato),corretor:kpiiaCampo(n,['corretor','responsavel','atendente','consultor'])||'Não informado',equipe:kpiiaCampo(n,['equipe','time'])||'Não informada',canal:kpiiaCampo(n,['origem','canal','portal','fonte'])||'Não informado',op:_relOperacaoDoItem(n)||'Não informado',categoria:kpiiaCampo(n,['categoriaImovel','tipoImovel','categoria','tipo'])||'Não informada',mql:mql,agendada:agendada,realizada:realizada,proposta:proposta,ganho:ganho,perdido:perdido,respondeu:respondeu,docs:kpiiaDias(docsIni,docsFim),jur:kpiiaDias(jurIni,jurFim),ciclo:ganho?kpiiaDias(entrada,fechamento):null,nps:isFinite(Number(n.nps))?Number(n.nps):null,csat:isFinite(Number(n.csat))?Number(n.csat):null,valor:crmValorFechado(n)||crmValorAnunciado(n)||0,receita:ganho?(Number(comissaoNegocio(n).val)||0):0}}
 function kpiiaPopularFiltros(){var dados=(DB.negocios||[]).map(kpiiaAnalisaNegocio);[['kpiia-corretor','corretor'],['kpiia-equipe','equipe'],['kpiia-canal','canal'],['kpiia-categoria','categoria']].forEach(function(par){var el=document.getElementById(par[0]);if(!el)return;var atual=el.value,rotulo=el.options[0]?el.options[0].text:'Todos';el.innerHTML='<option value="">'+rotulo+'</option>'+kpiiaUnicos(dados.map(function(x){return x[par[1]]})).map(function(v){return'<option>'+kpiiaEsc(v)+'</option>'}).join('');el.value=atual})}
 function kpiiaPeriodoMudou(){var tipo=document.getElementById('kpiia-periodo').value,agora=new Date(),ini=null,fim=new Date(agora.getFullYear(),agora.getMonth(),agora.getDate(),23,59,59);if(tipo==='hoje')ini=new Date(agora.getFullYear(),agora.getMonth(),agora.getDate());if(tipo==='semana'){ini=new Date(agora);ini.setDate(agora.getDate()-((agora.getDay()+6)%7));ini.setHours(0,0,0,0)}if(tipo==='mes')ini=new Date(agora.getFullYear(),agora.getMonth(),1);if(tipo!=='custom'){document.getElementById('kpiia-inicio').value=ini?ini.toISOString().slice(0,10):'';document.getElementById('kpiia-fim').value=tipo==='todos'?'':fim.toISOString().slice(0,10)}renderKPIInteligencia()}
 function kpiiaDadosFiltrados(){var ini=kpiiaData(document.getElementById('kpiia-inicio').value),fim=kpiiaData(document.getElementById('kpiia-fim').value);if(fim)fim.setHours(23,59,59,999);var vals={corretor:document.getElementById('kpiia-corretor').value,equipe:document.getElementById('kpiia-equipe').value,canal:document.getElementById('kpiia-canal').value,op:document.getElementById('kpiia-operacao').value,categoria:document.getElementById('kpiia-categoria').value};return(DB.negocios||[]).map(kpiiaAnalisaNegocio).filter(function(x){if(ini&&(!x.entrada||x.entrada<ini))return false;if(fim&&(!x.entrada||x.entrada>fim))return false;return Object.keys(vals).every(function(k){return!vals[k]||kpiiaNorm(x[k])===kpiiaNorm(vals[k])})})}
@@ -17484,11 +17564,11 @@ function renderRelatorios() {
     base.ativos.slice().sort(function(a,b){ return (a.fu||"9").localeCompare(b.fu||"9"); }).forEach(function(n){
       var com=comissaoNegocio(n); var fu=fuStatus(n.fu);
       var tr=document.createElement("tr");
-      tr.innerHTML="<td><b>"+n.cliente+"</b></td><td>"+n.tel+"</td>"+
-        "<td style='font-size:.78rem'>"+n.imovel+"</td><td>"+bOp(n.op)+"</td><td>"+n.etapa+"</td>"+
+      tr.innerHTML="<td><b>"+crmEscAttr(n.cliente)+"</b></td><td>"+crmEscAttr(n.tel)+"</td>"+
+        "<td style='font-size:.78rem'>"+crmEscAttr(n.imovel)+"</td><td>"+bOp(n.op)+"</td><td>"+crmEscAttr(n.etapa)+"</td>"+
         "<td class='relval'>"+fmtV2(com.val)+"</td><td>"+(n.fu?fmtIso(n.fu):"–")+"</td>"+
         "<td>"+(fu.cls?'<span class="fubadge '+fu.cls+'">'+fu.txt+'</span>':"–")+"</td>"+
-        "<td style='font-size:.76rem;color:#64748B'>"+(n.obs||"–")+"</td>";
+        "<td style='font-size:.76rem;color:#64748B'>"+crmEscAttr(n.obs||"–")+"</td>";
       tbFu.appendChild(tr);
     });
   }
@@ -19380,19 +19460,48 @@ try {
 // Local-file confirmation is separate from automatic browser backups.
 var crmSaidaBackup = {busy:false, confirmed:null, pending:null, action:'manual', focus:null};
 function crmBackupUsuario(){var u=window.CRMAuth&&CRMAuth.current();return u?String(u.id||u.username||''):'';}
+function crmBackupModoCentral(){return typeof crmModoPlataforma==='function'?crmModoPlataforma():!!(window.CRM_PLATFORM_CONFIG&&window.CRM_PLATFORM_CONFIG.url);}
+function crmBackupContexto(){var p=window.CRMPlatform;return {user:crmBackupUsuario(),company:String(p&&p.state&&p.state.companyId||''),central:crmBackupModoCentral()};}
+function crmBackupContextoIgual(a,b){return !!a&&!!b&&a.user===b.user&&a.company===b.company&&!!a.central===!!b.central;}
+function crmBackupEscopo(contexto){return '_u_'+encodeURIComponent(contexto.user)+'_c_'+encodeURIComponent(contexto.company);}
+function crmBackupContextoValido(contexto,permitirPendente){
+  if(!contexto||!contexto.user||_DB_CARREGAMENTO_PENDENTE||!crmBackupContextoIgual(contexto,crmBackupContexto()))return false;
+  if(!contexto.central)return typeof _persistenciaAutenticada==='function'&&_persistenciaAutenticada();
+  var p=window.CRMPlatform,s=p&&p.state,u=s&&s.user;
+  return !!(s&&s.ready&&u&&String(u.id||'')===contexto.user&&u.status==='active'&&contexto.company&&
+    (u.role==='superadmin'||u.companyId===contexto.company&&['active','due_soon'].indexOf(s.subscription&&s.subscription.status)>=0)&&
+    (permitirPendente||Number(s.pending)===0));
+}
+async function crmBackupAguardarServidor(contexto){
+  if(!crmBackupContextoValido(contexto,true))throw Error('Confirme o acesso e a empresa antes de gerar o backup.');
+  if(!contexto.central)return true;
+  var limite=Date.now()+45000;
+  for(var i=0;i<12;i++){
+    var s=window.CRMPlatform.state,fila=s.queue,timer,restante=limite-Date.now();
+    if(!fila||typeof fila.then!=='function'||restante<=0)throw Error('Aguarde a confirmação da sincronização e tente novamente.');
+    try{await Promise.race([fila,new Promise(function(resolve,reject){timer=setTimeout(function(){reject(Error('A sincronização ainda não terminou. Aguarde e tente novamente.'));},restante);})]);}
+    finally{if(timer)clearTimeout(timer);}
+    if(!crmBackupContextoValido(contexto,true))throw Error('A sessão mudou ou uma gravação não foi confirmada. Seus dados foram mantidos.');
+    if(s.queue===fila&&Number(s.pending)===0)return true;
+  }
+  throw Error('Há novas gravações pendentes. Aguarde a confirmação antes do backup.');
+}
 function crmBackupConteudo(dados){var copy=Object.assign({},dados);delete copy.persistRevision;return JSON.stringify(copy);}
 function crmBackupArquivoAtual(){
   if(!crmBackupUsuario())throw Error('Faça login antes de gerar o backup.');
   if(_DB_CARREGAMENTO_PENDENTE)throw Error('Aguarde o carregamento dos dados e tente novamente.');
+  var contexto=crmBackupContexto();
+  if(!crmBackupContextoValido(contexto,false))throw Error('Confirme o acesso, a empresa e o término da sincronização antes do backup.');
   // Materializar o histórico derivado antes da cópia, não depois da confirmação na saída.
   if(window.CRMCaptacoes&&CRMCaptacoes.prepareBackup)CRMCaptacoes.prepareBackup();
-  return {versao:'1.0',geradoEm:new Date().toLocaleString('pt-BR'),sistema:'Sistema de Gerenciamento de Imóveis',dados:_snapshotDB(true)};
+  return {versao:'1.0',geradoEm:new Date().toLocaleString('pt-BR'),sistema:'Sistema de Gerenciamento de Imóveis',contexto:contexto,dados:_snapshotDB(true)};
 }
 function crmBackupSaidaPendente(){
   if(!crmBackupUsuario())return false;
   if(_DB_CARREGAMENTO_PENDENTE)return true;
+  var contexto=crmBackupContexto();if(!crmBackupContextoValido(contexto,false))return true;
   var c=crmSaidaBackup.confirmed;
-  return !c||c.user!==crmBackupUsuario()||c.content!==crmBackupConteudo(_snapshotDB(true));
+  return !c||c.user!==crmBackupUsuario()||contexto.central&&!crmBackupContextoIgual(c.contexto,contexto)||c.contexto&&!crmBackupContextoIgual(c.contexto,contexto)||c.content!==crmBackupConteudo(_snapshotDB(true));
 }
 function crmBackupSaidaMensagem(text){document.getElementById('crm-backup-saida-status').textContent=text;}
 function crmBackupSaidaControles(){
@@ -19424,7 +19533,9 @@ function crmBackupSaidaVoltar(){
 }
 function crmBackupSaidaConfirmar(pending){
   if(pending.user!==crmBackupUsuario())throw Error('A sessão mudou. Gere um novo backup com o usuário atual.');
-  crmSaidaBackup.confirmed={user:pending.user,content:pending.content};
+  var contexto=crmBackupContexto();
+  if(!crmBackupContextoValido(contexto,false)||pending.contexto&&!crmBackupContextoIgual(pending.contexto,contexto)||contexto.central&&!pending.contexto)throw Error('A sessão, empresa ou sincronização mudou. Gere um novo backup na base atual.');
+  crmSaidaBackup.confirmed={user:pending.user,contexto:contexto,content:pending.content};
   crmSaidaBackup.pending=null;
   if(crmBackupSaidaPendente()){
     crmBackupSaidaMensagem('O arquivo foi salvo, mas os dados do CRM mudaram durante o backup. Salve uma nova cópia antes de sair.');
@@ -19434,15 +19545,20 @@ async function crmBackupSaidaSalvar(){
   var s=crmSaidaBackup;if(s.busy)return;
   var writable;
   try{
-    var data=crmBackupArquivoAtual(),pending={user:crmBackupUsuario(),content:crmBackupConteudo(data.dados),json:null,name:_nomeBackupAutomatico('imoveis_backup_local')};
+    var contexto=crmBackupContexto();if(!crmBackupContextoValido(contexto,true))throw Error('Confirme o acesso e a empresa antes do backup.');
+    var pending={user:crmBackupUsuario(),contexto:contexto,content:null,json:null,name:_nomeBackupAutomatico('imoveis_backup_local')};
     s.pending=null;s.confirmed=null;s.busy=true;crmBackupSaidaControles();
     var handle;
     // Keep the picker inside the original user gesture; fetch photos only after it.
     if(typeof window.showSaveFilePicker==='function')handle=await window.showSaveFilePicker({suggestedName:pending.name,types:[{description:'Backup do CRM (JSON)',accept:{'application/json':['.json']}}]});
+    if(contexto.central){crmBackupSaidaMensagem('Aguardando a confirmação das gravações do CRM…');await crmBackupAguardarServidor(contexto);}
+    if(!crmBackupContextoValido(contexto,false))throw Error('A sessão ou empresa mudou. Gere um novo backup.');
+    var data=crmBackupArquivoAtual();pending.content=crmBackupConteudo(data.dados);
     if(window.CRMMedia&&CRMMedia.hasPrivateMedia(data.dados)){
       crmBackupSaidaMensagem('Preparando o backup completo, incluindo as fotos privadas. Aguarde…');
       data.dados=await CRMMedia.materializeSnapshot(data.dados);
     }
+    if(!crmBackupContextoValido(contexto,false))throw Error('A sessão ou empresa mudou durante a preparação das fotos.');
     pending.json=JSON.stringify(data,null,2);
     if(typeof window.showSaveFilePicker==='function'){
       crmBackupSaidaMensagem('Gravando e conferindo o arquivo. Aguarde…');
@@ -19710,14 +19826,29 @@ window.addEventListener('beforeunload',crmBackupAntesDeFechar);
   var idempotency=function(){return crypto.randomUUID();};
   var note=function(text,error){var n=el('platform-status');if(n){n.textContent=text;n.style.color=error?'#B91C1C':'#166534';}if(error&&typeof toast==='function')toast(text,true);};
   function token(){try{return JSON.parse(sessionStorage.getItem(CRMAuth.centralSessionKey)||'null');}catch(e){return null;}}
-  var sessionRefresh=null,media=null;
+  var sessionRefresh=null,media=null,loadGeneration=0,bootGeneration=0;
+  function sessionOwner(session){return String(session&&session.user&&(session.user.id||session.user.userId)||'');}
+  function contextChanged(){var e=Error('A sessão ou empresa mudou durante a operação. Confirme a base atual antes de continuar.');e.code='platform_context_changed';return e;}
+  async function requestJSON(url,options){
+    var controller=typeof AbortController==='function'?new AbortController():null;
+    var timedOut=false,timer=setTimeout(function(){timedOut=true;if(controller)controller.abort();},30000);
+    try{
+      var init=Object.assign({credentials:'omit',redirect:'error'},options||{});
+      if(controller)init.signal=controller.signal;
+      var response=await fetch(url,init),data;
+      try{data=await response.json();}catch(e){if(response.ok)throw Error('O servidor retornou uma resposta inválida. Os dados locais foram preservados.');data={};}
+      if(!data||typeof data!=='object'||Array.isArray(data))throw Error('O servidor retornou uma resposta inválida. Os dados locais foram preservados.');
+      return {response:response,data:data};
+    }catch(e){if(timedOut){var timeout=Error('O servidor demorou para responder. Confira a conexão antes de tentar novamente; a confirmação da operação continua pendente.');timeout.code='platform_request_timeout';throw timeout;}throw e;}
+    finally{clearTimeout(timer);}
+  }
   async function freshSession(){
     var s=token();if(!s||!s.accessToken)throw Error('Entre com seu e-mail e senha para acessar o servidor.');
     if(s.expiresAt<=Date.now()+15000){
       if(!sessionRefresh)sessionRefresh=(async function(){
         var c=window.CRM_CENTRAL_AUTH_CONFIG||{};
-        var rr=await fetch(c.url+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{apikey:c.key,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:s.refreshToken}),credentials:'omit',redirect:'error'});
-        var fresh=await rr.json();if(!rr.ok||!fresh.access_token)throw Error('Sessão expirada. Entre novamente.');
+        var result=await requestJSON(c.url+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{apikey:c.key,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:s.refreshToken})});
+        var rr=result.response,fresh=result.data;if(!rr.ok||!fresh.access_token)throw Error('Sessão expirada. Entre novamente.');
         var current=token();if(!current||current.refreshToken!==s.refreshToken)throw Error('A sessão mudou durante a renovação. Entre novamente.');
         s.accessToken=fresh.access_token;s.refreshToken=fresh.refresh_token;s.expiresAt=Date.now()+fresh.expires_in*1000;CRMAuth.salvarSessaoCentral(s);return s;
       })().finally(function(){sessionRefresh=null;});
@@ -19736,9 +19867,10 @@ window.addEventListener('beforeunload',crmBackupAntesDeFechar);
   }
   async function api(path,options,retry){
     if(!/^\/[A-Za-z0-9/_-]+$/.test(apiBase)||apiBase.indexOf('//')>=0)throw Error('Configuração inválida do caminho da API comercial.');
-    var s=await freshSession();
-    var response=await fetch(String(cfg.url).replace(/\/$/,'')+apiBase+path,{...options,headers:{Authorization:'Bearer '+s.accessToken,'Content-Type':'application/json',...(options&&options.headers||{})},cache:'no-store',credentials:'omit'});
-    var data=await response.json().catch(function(){return {};});
+    var s=await freshSession(),owner=sessionOwner(s);
+    var result=await requestJSON(String(cfg.url).replace(/\/$/,'')+apiBase+path,{...options,headers:{Authorization:'Bearer '+s.accessToken,'Content-Type':'application/json',...(options&&options.headers||{})},cache:'no-store'});
+    var current=token();if(!current||owner&&sessionOwner(current)!==owner)throw contextChanged();
+    var response=result.response,data=result.data;
     if(!response.ok){var e=Error(data.error||data.message||'O servidor recusou a operação.');e.status=response.status;e.code=data.code;throw e;}
     return data;
   }
@@ -19828,11 +19960,14 @@ window.addEventListener('beforeunload',crmBackupAntesDeFechar);
   async function loadData(targetCompany){
     var selected=targetCompany===undefined?state.companyId:targetCompany;
     if(state.pending)throw Error('Aguarde as gravações antes de carregar outra base.');
+    var generation=++loadGeneration,owner=state.user&&state.user.id;
+    var current=function(){return generation===loadGeneration&&(state.user&&state.user.id)===owner;};
     state.ready=false;
     var query=admin()?'?companyId='+encodeURIComponent(selected||''):'';
-    if(admin()&&!selected){state.companyId=null;state.ready=false;return;}
+    if(admin()&&!selected){state.companyId=null;state.ready=false;return true;}
     try{
       var response=await api('/data'+query),remote=response.data||{};
+      if(!current())return false;
       // Only administrators migrate legacy local data. Ordinary users load their
       // authorized server base, even when empty; never import browser fallback data.
       // Existing local storage/backups are not deleted or overwritten by loadData.
@@ -19842,8 +19977,9 @@ window.addEventListener('beforeunload',crmBackupAntesDeFechar);
       var mediaStore=privateMedia();if(mediaStore)mediaStore.clear();
       state.revision=response.revision;_aplicarSnapshotDB(remote);state.companyId=selected;state.ackData=JSON.parse(JSON.stringify(_snapshotDB(true)));_DB_CARREGAMENTO_PENDENTE=false;_DB_CARREGAMENTO_FINALIZADO=true;state.ready=true;renderDashboard();
       if(mediaStore)mediaStore.bindDocument(document);
+      return true;
     }
-    catch(e){block('A base não foi carregada. '+e.message+' Confirme o acesso antes de continuar.');throw e;}
+    catch(e){if(!current())return false;block('A base não foi carregada. '+e.message+' Confirme o acesso antes de continuar.');throw e;}
   }
   function snapshotPermitido(){
     var snap=JSON.parse(JSON.stringify(_snapshotDB(true)));delete snap.captacoesImoveisLocal;delete snap.captacoesImoveisAuditLocal;if(admin())return snap;
@@ -19862,17 +19998,21 @@ window.addEventListener('beforeunload',crmBackupAntesDeFechar);
   }
   function saveDB(data){
     if(!state.ready||!valid()||(!state.companyId&&admin()))return false;
-    var snap=snapshotPermitido(),company=state.companyId;state.pending++;syncStatus('Alterações em envio ao servidor…');
+    var snap=snapshotPermitido(),company=state.companyId,owner=state.user&&state.user.id;
+    var current=function(){return state.companyId===company&&(state.user&&state.user.id)===owner;};
+    state.pending++;syncStatus('Alterações em envio ao servidor…');
     state.queue=state.queue.then(async function(){try{
-      if(!state.ready||state.companyId!==company)throw Error('Sincronização suspensa; verifique o acesso antes de salvar.');
+      if(!state.ready||!current())throw Error('Sincronização suspensa; verifique o acesso antes de salvar.');
       var mediaStore=privateMedia(),prepared=mediaStore?await mediaStore.prepareSnapshot(snap):{snapshot:snap,changes:[]};
+      if(!state.ready||!current())throw contextChanged();
       snap=prepared.snapshot;
       var body=serializeImportBody({data:snap,revision:state.revision});
       var response=await api('/data'+(admin()?'?companyId='+encodeURIComponent(company):''),{method:'PUT',body:body});
+      if(!state.ready||!current())throw contextChanged();
       state.revision=response.revision;mergePropertyMetadata(response.propertyMetadata,snap,company);
       if(mediaStore&&state.companyId===company)mediaStore.mergeConfirmed(prepared.changes,DB);
       state.ackData=snap;syncStatus('Dados e fotos confirmados pelo servidor.');
-    }catch(e){state.ready=false;syncStatus('Falha de gravação: '+e.message);block('Não foi possível confirmar suas alterações. '+e.message+' Reabra a base para continuar.');throw e;}}).catch(function(e){error(e);}).finally(function(){state.pending--;});return true;
+    }catch(e){if(current()){state.ready=false;syncStatus('Falha de gravação: '+e.message);block('Não foi possível confirmar suas alterações. '+e.message+' Reabra a base para continuar.');}throw e;}}).catch(function(e){error(e);}).finally(function(){state.pending--;});return true;
   }
   function syncStatus(text){var n=el('platform-sync-status');if(n)n.textContent=text;}
   async function saveConfirmed(){
@@ -19886,15 +20026,15 @@ window.addEventListener('beforeunload',crmBackupAntesDeFechar);
   async function boot(){
     if(!enabled)return;var session=token();if(!session)return;
     if(state.pending){note('Aguarde a sincronização antes de verificar o acesso.');return;}
-    state.ready=false;
+    var generation=++bootGeneration;loadGeneration++;state.ready=false;
     block('Verificando acesso, empresa e assinatura no servidor…');
-    try{var response=await api('/session');state.user=response.user;state.subscription=response.subscription;state.companyId=admin()?(state.companyId||state.user.companyId):state.user.companyId;state.notifications=response.notifications||[];
+    try{var response=await api('/session');if(generation!==bootGeneration)return;state.user=response.user;state.subscription=response.subscription;state.companyId=admin()?(state.companyId||state.user.companyId):state.user.companyId;state.notifications=response.notifications||[];
       authAplicarUI();syncNavigation();
       if(!valid()){state.ready=false;if(media)media.clear();block('Sua assinatura está '+(labels[state.subscription&&state.subscription.status]||'indisponível').toLowerCase()+'. Renove para continuar. Seus dados permanecem preservados.');return;}
-      await loadData();unlock();
+      if(await loadData()===false||generation!==bootGeneration)return;unlock();
       if(admin()){await loadAdmin();showTab('assinaturas');}
       else {var first=Object.keys(tabModule).find(function(id){return allowed(tabModule[id],'view');});if(first)showTab(first);else block('Seu perfil ainda não tem funcionalidades autorizadas. Procure o administrador.');await popup();}
-    }catch(e){state.ready=false;if(media)media.clear();block('Não foi possível validar seu acesso no servidor. '+e.message);}
+    }catch(e){if(generation!==bootGeneration)return;state.ready=false;if(media)media.clear();block('Não foi possível validar seu acesso no servidor. '+e.message);}
   }
   window.CRMPlatform={api:api,state:state,boot:boot,canTab:canTab,isEnabled:function(){return enabled;},saveConfirmed:saveConfirmed,canAction:function(module,action){return state.ready&&valid()&&allowed(module,action);},saveDB:saveDB,saveUser:saveUser,editUser:editUser,toggleUser:toggleUser,deleteUser:deleteUser,resetUser:resetUser,renderUsers:function(){return renderUsers().catch(error);}};
   if(enabled)window.CRMMedia={
