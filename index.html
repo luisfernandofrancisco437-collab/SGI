@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CRM SGI — Sistema de Gerenciamento de Imóveis</title>
-<meta name="application-version" content="2026.11.17.1">
-<meta name="last-modified" content="2026-11-17">
+<meta name="application-version" content="2026.11.18.1">
+<meta name="last-modified" content="2026-11-18">
 <link rel="icon" type="image/png" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2072%2072%22%3E%3Crect%20width%3D%2272%22%20height%3D%2272%22%20rx%3D%2214%22%20fill%3D%22%23142f44%22%2F%3E%3Ctext%20x%3D%2236%22%20y%3D%2244%22%20text-anchor%3D%22middle%22%20font-family%3D%22Arial%22%20font-size%3D%2222%22%20font-weight%3D%22bold%22%20fill%3D%22white%22%3ECRM%3C%2Ftext%3E%3C%2Fsvg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -30,7 +30,7 @@ header h1{color:#fff;font-size:1.4rem;font-weight:700;white-space:nowrap;overflo
 header p{color:#B3D1F0;font-size:.82rem}
 .consultor-avatar{display:block;color:transparent;font-size:0;overflow:hidden}
 header .header-title{overflow:visible}
-header .header-title h1{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.15;overflow-wrap:anywhere}
+header .header-title h1{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.15;overflow-wrap:normal;word-break:normal}
 .system-version-badge{display:inline-flex;align-items:center;gap:5px;margin-top:5px;padding:3px 8px;border-radius:999px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.26);color:#fff;font-size:.67rem;font-weight:800;letter-spacing:.02em;white-space:nowrap}
 .auth-version{display:inline-flex;margin-top:12px;padding:5px 10px;border-radius:999px;background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.24);color:#fff;font-size:.72rem;font-weight:800}
 .tabs{background:var(--azul);display:flex;gap:2px;padding:0 24px;overflow-x:auto}
@@ -1233,6 +1233,29 @@ body.auth-locked #auth-screen{display:flex}
 #modal-perda-bg.open{display:flex!important}
 
 .crm-paginacao{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;margin:14px 0}
+/* crm-header-responsive-20261118: independent title, wrapping actions and status row. */
+header.crm-app-header{display:grid;grid-template-columns:auto minmax(280px,1fr) minmax(0,2fr);align-items:center;gap:14px 18px;padding:18px 28px}
+.crm-app-header>.header-title{min-width:0;overflow:visible}
+.crm-app-header>.header-title h1{font-size:clamp(1.15rem,1.45vw,1.4rem);line-height:1.2;white-space:normal;overflow:visible;overflow-wrap:normal;word-break:normal}
+.crm-app-header>.header-title p{margin-top:5px;line-height:1.45}
+.crm-app-header>.backup-bar{display:flex;min-width:0;width:auto;flex-wrap:wrap;justify-content:flex-end;gap:8px;overflow:visible;padding:0}
+.crm-app-header>.backup-bar>.btn-backup,.crm-app-header>.backup-bar>.btn-publicar{flex:0 0 auto;min-height:38px;justify-content:center;white-space:nowrap;padding:8px 13px}
+.crm-app-header .auth-user-area{flex:0 1 auto;max-width:100%;min-width:0}
+.crm-app-header .auth-user-chip{min-width:0;white-space:normal;overflow-wrap:anywhere;line-height:1.3}
+.crm-app-header #crm-site-sync-status{display:block;flex:1 0 100%;min-width:0;max-width:none;padding:6px 10px;border-left:3px solid currentColor;border-radius:6px;background:rgba(255,255,255,.94);font-size:.72rem;font-weight:600;line-height:1.45;white-space:normal;overflow-wrap:anywhere;text-align:left}
+.crm-app-header #crm-site-sync-status[hidden]{display:none!important}
+@media(max-width:1000px){
+  header.crm-app-header{grid-template-columns:auto minmax(0,1fr);padding:16px 20px}
+  .crm-app-header>.backup-bar{grid-column:1/-1;justify-content:flex-start}
+}
+@media(max-width:640px){
+  header.crm-app-header{padding:14px;gap:12px}
+  .crm-app-header>.header-title h1{font-size:1.08rem}
+  .crm-app-header>.header-title p{font-size:.72rem}
+  .crm-app-header .system-version-badge{font-size:.6rem;white-space:normal;line-height:1.3}
+  .crm-app-header>.backup-bar>.btn-backup,.crm-app-header>.backup-bar>.btn-publicar{min-height:40px;padding:8px 10px;font-size:.75rem}
+  .crm-app-header .auth-user-area{margin-left:auto}
+}
 </style>
 <meta name="robots" content="noindex,nofollow,noarchive">
 </head>
@@ -1244,7 +1267,7 @@ body.auth-locked #auth-screen{display:flex}
         <img src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2072%2072%22%3E%3Crect%20width%3D%2272%22%20height%3D%2272%22%20rx%3D%2214%22%20fill%3D%22%23142f44%22%2F%3E%3Ctext%20x%3D%2236%22%20y%3D%2244%22%20text-anchor%3D%22middle%22%20font-family%3D%22Arial%22%20font-size%3D%2222%22%20font-weight%3D%22bold%22%20fill%3D%22white%22%3ECRM%3C%2Ftext%3E%3C%2Fsvg%3E" alt="CRM Imóveis" width="72" height="72" decoding="async" onerror="this.onerror=null;this.style.display='none'">
         <h1>CRM Imóveis</h1>
         <p>Gestão imobiliária, atendimento, captação, comissões e relacionamento em um único sistema.</p>
-        <span class="auth-version" title="Auditoria de cálculos, busca, segurança, backup e sincronização; canal comercial de mensagens permanece desligado">Versão 2026.11.17.1 · Atualizado em 17/11/2026</span>
+        <span class="auth-version" title="Cabeçalho responsivo; preservadas as correções de cálculos, segurança e sincronização">Versão 2026.11.18.1 · Atualizado em 18/11/2026</span>
       </div>
       <small>Acesso individual e dados separados por usuário.</small>
     </section>
@@ -1333,12 +1356,12 @@ body.auth-locked #auth-screen{display:flex}
   </div>
 </div>
 
-<header>
-  <div class="logo"><img class="consultor-avatar" src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2072%2072%22%3E%3Crect%20width%3D%2272%22%20height%3D%2272%22%20rx%3D%2214%22%20fill%3D%22%23142f44%22%2F%3E%3Ctext%20x%3D%2236%22%20y%3D%2244%22%20text-anchor%3D%22middle%22%20font-family%3D%22Arial%22%20font-size%3D%2222%22%20font-weight%3D%22bold%22%20fill%3D%22white%22%3ECRM%3C%2Ftext%3E%3C%2Fsvg%3E" alt="CRM Imobiliário"></div></div>
+<header class="crm-app-header">
+  <div class="logo"><img class="consultor-avatar" src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2072%2072%22%3E%3Crect%20width%3D%2272%22%20height%3D%2272%22%20rx%3D%2214%22%20fill%3D%22%23142f44%22%2F%3E%3Ctext%20x%3D%2236%22%20y%3D%2244%22%20text-anchor%3D%22middle%22%20font-family%3D%22Arial%22%20font-size%3D%2222%22%20font-weight%3D%22bold%22%20fill%3D%22white%22%3ECRM%3C%2Ftext%3E%3C%2Fsvg%3E" alt="CRM Imobiliário"></div>
   <div class="header-title">
     <h1>Sistema de Gerenciamento de Imóveis</h1>
     <p>Fernando · Consultor Imobiliário · CRM · Relatórios</p>
-    <span id="system-version" class="system-version-badge" title="Data da última alteração do sistema">Versão 2026.11.17.1 · 17/11/2026</span>
+    <span id="system-version" class="system-version-badge" title="Data da última alteração do sistema">Versão 2026.11.18.1 · 18/11/2026</span>
   </div>
   <div class="backup-bar">
     <button class="btn-backup" onclick="gerarBackup()" title="Salvar todos os dados em arquivo JSON">💾 Backup</button>
@@ -21052,7 +21075,7 @@ window.importarLeadsPublicosPendentes=function(){return false;};
     var button=element('btn-sincronizar-site');
     if(button){button.textContent='🌐 Conferir site';button.title='Consultar a confirmação do catálogo público. As publicações são automáticas no servidor.';}
     var host=element('crm-site-sync-status');
-    if(!host&&button&&button.parentElement){host=doc.createElement('span');host.id='crm-site-sync-status';host.setAttribute('role','status');host.setAttribute('aria-live','polite');host.style.cssText='font:600 12px Arial;max-width:400px;display:inline-block;padding:5px 8px';button.parentElement.appendChild(host);}
+    if(!host&&button&&button.parentElement){host=doc.createElement('span');host.id='crm-site-sync-status';host.className='crm-site-sync-status';host.setAttribute('role','status');host.setAttribute('aria-live','polite');button.parentElement.appendChild(host);}
     if(host){host.textContent=s.message;host.dataset.state=s.status;host.style.color=s.status==='confirmed'?'#166534':s.status==='error'?'#B91C1C':'#475569';host.hidden=!context().allowed;}
   }
   function setStatus(status,message){s.status=status;s.message=message;s.confirmed=status==='confirmed';mount();var host=element('mi-seo-painel');if(host&&host.dataset.siteCode&&s.lastProperty)renderProperty(s.lastProperty,false);}
