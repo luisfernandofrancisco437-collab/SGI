@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CRM SGI — Sistema de Gerenciamento de Imóveis</title>
-<meta name="application-version" content="2026.11.19.1">
-<meta name="last-modified" content="2026-11-19">
+<meta name="application-version" content="2026.11.23.1">
+<meta name="last-modified" content="2026-11-23">
 <link rel="icon" type="image/png" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2072%2072%22%3E%3Crect%20width%3D%2272%22%20height%3D%2272%22%20rx%3D%2214%22%20fill%3D%22%23142f44%22%2F%3E%3Ctext%20x%3D%2236%22%20y%3D%2244%22%20text-anchor%3D%22middle%22%20font-family%3D%22Arial%22%20font-size%3D%2222%22%20font-weight%3D%22bold%22%20fill%3D%22white%22%3ECRM%3C%2Ftext%3E%3C%2Fsvg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -142,6 +142,7 @@ td{padding:10px 13px;vertical-align:middle}
 .sc .lbl{font-size:.77rem;color:#64748B}
 .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1000;align-items:center;justify-content:center}
 .modal-bg.open{display:flex}
+#modal-visita-bg.open{z-index:1010} /* O agendamento deve ficar acima da ficha que o abriu. */
 #modal-retorno-prazo-bg{z-index:12060}
 .modal{background:#fff;border-radius:14px;width:92%;max-width:700px;max-height:92vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)}
 #modal-retorno-prazo-bg .retorno-prazo-acoes{position:sticky;bottom:-22px;z-index:3;background:#fff;border-top:1px solid #E2E8F0;padding:12px 0 4px;box-shadow:0 -8px 14px rgba(255,255,255,.94)}
@@ -1267,7 +1268,7 @@ header.crm-app-header{display:grid;grid-template-columns:auto minmax(280px,1fr) 
         <img src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2072%2072%22%3E%3Crect%20width%3D%2272%22%20height%3D%2272%22%20rx%3D%2214%22%20fill%3D%22%23142f44%22%2F%3E%3Ctext%20x%3D%2236%22%20y%3D%2244%22%20text-anchor%3D%22middle%22%20font-family%3D%22Arial%22%20font-size%3D%2222%22%20font-weight%3D%22bold%22%20fill%3D%22white%22%3ECRM%3C%2Ftext%3E%3C%2Fsvg%3E" alt="CRM Imóveis" width="72" height="72" decoding="async" onerror="this.onerror=null;this.style.display='none'">
         <h1>CRM Imóveis</h1>
         <p>Gestão imobiliária, atendimento, captação, comissões e relacionamento em um único sistema.</p>
-        <span class="auth-version" title="Cabeçalho responsivo; preservadas as correções de cálculos, segurança e sincronização">Versão 2026.11.19.1 · Atualizado em 19/11/2026</span>
+        <span class="auth-version" title="Agendamento ao entrar na etapa Visita">Versão 2026.11.23.1 · Atualizado em 23/11/2026</span>
       </div>
       <small>Acesso individual e dados separados por usuário.</small>
     </section>
@@ -1361,7 +1362,7 @@ header.crm-app-header{display:grid;grid-template-columns:auto minmax(280px,1fr) 
   <div class="header-title">
     <h1>Sistema de Gerenciamento de Imóveis</h1>
     <p>Fernando · Consultor Imobiliário · CRM · Relatórios</p>
-    <span id="system-version" class="system-version-badge" title="Data da última alteração do sistema">Versão 2026.11.19.1 · 19/11/2026</span>
+    <span id="system-version" class="system-version-badge" title="Data da última alteração do sistema">Versão 2026.11.23.1 · 23/11/2026</span>
   </div>
   <div class="backup-bar">
     <button class="btn-backup" onclick="gerarBackup()" title="Salvar todos os dados em arquivo JSON">💾 Backup</button>
@@ -11008,6 +11009,7 @@ function crmAlterarEtapaNegocio(id, etapa, origem){
   if(!crmConfirmarEdicaoDB(anterior,'Não foi possível salvar a etapa. A fase anterior foi mantida.')){crmSincronizarEtapaFicha();return false;}
   crmSincronizarEtapaFicha();
   renderCRM();
+  if(etapa==='Visita'&&etapaAnterior!=='Visita') abrirModalVisita(n.id,true);
   return true;
 }
 function crmAlterarEtapaFicha(){
