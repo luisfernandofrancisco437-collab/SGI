@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CRM SGI — Sistema de Gerenciamento de Imóveis</title>
-<meta name="application-version" content="2026.11.23.1">
+<meta name="application-version" content="2026.11.24.1">
 <meta name="last-modified" content="2026-11-23">
 <link rel="icon" type="image/png" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2072%2072%22%3E%3Crect%20width%3D%2272%22%20height%3D%2272%22%20rx%3D%2214%22%20fill%3D%22%23142f44%22%2F%3E%3Ctext%20x%3D%2236%22%20y%3D%2244%22%20text-anchor%3D%22middle%22%20font-family%3D%22Arial%22%20font-size%3D%2222%22%20font-weight%3D%22bold%22%20fill%3D%22white%22%3ECRM%3C%2Ftext%3E%3C%2Fsvg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1268,7 +1268,7 @@ header.crm-app-header{display:grid;grid-template-columns:auto minmax(280px,1fr) 
         <img src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2072%2072%22%3E%3Crect%20width%3D%2272%22%20height%3D%2272%22%20rx%3D%2214%22%20fill%3D%22%23142f44%22%2F%3E%3Ctext%20x%3D%2236%22%20y%3D%2244%22%20text-anchor%3D%22middle%22%20font-family%3D%22Arial%22%20font-size%3D%2222%22%20font-weight%3D%22bold%22%20fill%3D%22white%22%3ECRM%3C%2Ftext%3E%3C%2Fsvg%3E" alt="CRM Imóveis" width="72" height="72" decoding="async" onerror="this.onerror=null;this.style.display='none'">
         <h1>CRM Imóveis</h1>
         <p>Gestão imobiliária, atendimento, captação, comissões e relacionamento em um único sistema.</p>
-        <span class="auth-version" title="Agendamento ao entrar na etapa Visita">Versão 2026.11.23.1 · Atualizado em 23/11/2026</span>
+        <span class="auth-version" title="Disponibilidade por modalidade no CRM">Versão 2026.11.24.1 · Atualizado em 24/11/2026</span>
       </div>
       <small>Acesso individual e dados separados por usuário.</small>
     </section>
@@ -1362,7 +1362,7 @@ header.crm-app-header{display:grid;grid-template-columns:auto minmax(280px,1fr) 
   <div class="header-title">
     <h1>Sistema de Gerenciamento de Imóveis</h1>
     <p>Fernando · Consultor Imobiliário · CRM · Relatórios</p>
-    <span id="system-version" class="system-version-badge" title="Data da última alteração do sistema">Versão 2026.11.23.1 · 23/11/2026</span>
+    <span id="system-version" class="system-version-badge" title="Data da última alteração do sistema">Versão 2026.11.24.1 · 24/11/2026</span>
   </div>
   <div class="backup-bar">
     <button class="btn-backup" onclick="gerarBackup()" title="Salvar todos os dados em arquivo JSON">💾 Backup</button>
@@ -1538,7 +1538,7 @@ header.crm-app-header{display:grid;grid-template-columns:auto minmax(280px,1fr) 
           <input id="f-valor-venda" type="text" placeholder="0,00">
         </div>
         <div>
-          <label>Disponibilidade <span class="req">*</span></label>
+          <label>Disponibilidade geral <span class="req">*</span></label>
           <select id="f-disp">
             <option value="">Selecione...</option>
             <option>Disponível</option><option>Indisponível</option>
@@ -1546,6 +1546,8 @@ header.crm-app-header{display:grid;grid-template-columns:auto minmax(280px,1fr) 
           </select>
         </div>
         <div>
+        <div id="f-status-venda-wrap" hidden><label for="f-status-venda">Venda no anúncio</label><select id="f-status-venda"><option>Disponível</option><option>Suspensa</option><option>Vendido</option></select></div>
+        <div id="f-status-locacao-wrap" hidden><label for="f-status-locacao">Locação no anúncio</label><select id="f-status-locacao"><option>Disponível</option><option>Suspensa</option><option>Alugado</option></select></div>
           <label>Nome do Condomínio</label>
           <input id="f-cond" type="text" placeholder="Ex: Cond. Jardim das Rosas">
         </div>
@@ -3331,12 +3333,14 @@ header.crm-app-header{display:grid;grid-template-columns:auto minmax(280px,1fr) 
           <select id="mi-op" onchange="toggleValorVendaEdicao()"><option>Venda</option><option>Locação</option><option>Locação e Venda</option></select>
         </div>
         <div id="mi-valor-venda-wrap" style="display:none"><label>Valor de Venda (R$) <span class="req">*</span></label><input id="mi-valor-venda" type="text"></div>
-        <div><label>Disponibilidade <span class="req">*</span></label>
+        <div><label>Disponibilidade geral <span class="req">*</span></label>
           <select id="mi-disp">
             <option>Disponível</option><option>Indisponível</option>
             <option>Em negociação</option><option>Reservado</option>
           </select>
         </div>
+        <div id="mi-status-venda-wrap" hidden><label for="mi-status-venda">Venda no anúncio</label><select id="mi-status-venda"><option>Disponível</option><option>Suspensa</option><option>Vendido</option></select></div>
+        <div id="mi-status-locacao-wrap" hidden><label for="mi-status-locacao">Locação no anúncio</label><select id="mi-status-locacao"><option>Disponível</option><option>Suspensa</option><option>Alugado</option></select></div>
         <div><label>Nome do Condomínio</label><input id="mi-cond" type="text" placeholder="Ex: Cond. Jardim das Rosas"></div>
         <div></div>
         <div><label>Área (m²)</label><input id="mi-area" type="text" placeholder="Ex: 85"></div>
@@ -6026,6 +6030,17 @@ function fmtV(v, op) {
   var f = Number(v).toLocaleString("pt-BR", {minimumFractionDigits:0, maximumFractionDigits:0});
   return op === "Locação" ? "R$ " + f + "/mês" : "R$ " + f;
 }
+function crmExibirModalidades(prefix){
+  var op=document.getElementById(prefix+"-op").value, dupla=crmImovelOperacaoDupla(op);
+  document.getElementById(prefix+"-status-venda-wrap").hidden=!(dupla||op==="Venda");
+  document.getElementById(prefix+"-status-locacao-wrap").hidden=!(dupla||op==="Locação");
+}
+function crmLerModalidades(prefix){
+  var op=document.getElementById(prefix+"-op").value, dupla=crmImovelOperacaoDupla(op), result={};
+  if(dupla||op==="Venda")result.statusVenda=document.getElementById(prefix+"-status-venda").value;
+  if(dupla||op==="Locação")result.statusLocacao=document.getElementById(prefix+"-status-locacao").value;
+  return result;
+}
 function crmImovelOperacaoDupla(op) {
   return op === "Locação e Venda" || op === "Locação ou Venda";
 }
@@ -7720,6 +7735,7 @@ document.getElementById("f-valor").addEventListener("input", function(){ this.va
 var _fValorVendaEl = document.getElementById("f-valor-venda");
 if (_fValorVendaEl) _fValorVendaEl.addEventListener("input", function(){ this.value = mascaraVal(this.value); });
 function toggleValorVendaCadastro() {
+  crmExibirModalidades("f");
   var op = document.getElementById("f-op");
   var wrap = document.getElementById("f-valor-venda-wrap");
   var label = document.getElementById("f-valor-label");
@@ -7776,6 +7792,7 @@ async function salvarImovel() {
     publicado: false, atualizadoEm:new Date().toISOString()
   };
   Object.assign(novoImovel, captacaoInfo);
+  Object.assign(novoImovel,crmLerModalidades("f"));
   var anterior = crmCapturarEdicaoDB(["imoveis","contatos","cSeq"]);
   DB.imoveis.push(novoImovel);
   crmSincronizarContatoProprietario(novoImovel);
@@ -7788,6 +7805,8 @@ async function salvarImovel() {
 }
 
 function limparFormImovel() {
+  document.getElementById("f-status-venda").selectedIndex=0;
+  document.getElementById("f-status-locacao").selectedIndex=0;
   ["f-codigo","f-prop","f-tel","f-rua","f-bairro","f-cidade","f-tipo","f-valor","f-valor-venda","f-op","f-disp",
    "f-cond","f-obs","f-area","f-quartos","f-suites","f-banheiros","f-vagas","f-posicao","f-andar","f-iptu","f-condominio"]
     .forEach(function(id){ document.getElementById(id).value = ""; });
@@ -7824,6 +7843,8 @@ function editarImovel(cod) {
   var miValorVendaEl = document.getElementById("mi-valor-venda");
   if (miValorVendaEl) miValorVendaEl.value = im.valorVenda ? Number(im.valorVenda).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}) : "";
   document.getElementById("mi-disp").value   = im.disp;
+  document.getElementById("mi-status-venda").value=im.statusVenda||"Disponível";
+  document.getElementById("mi-status-locacao").value=im.statusLocacao||"Disponível";
   document.getElementById("mi-cond").value   = im.cond || "";
   document.getElementById("mi-obs").value    = im.obs || "";
   var siteFlag = document.getElementById("mi-publicar-no-site");
@@ -7867,6 +7888,7 @@ document.getElementById("mi-valor").addEventListener("input", function(){ this.v
 var _miValorVendaEl = document.getElementById("mi-valor-venda");
 if (_miValorVendaEl) _miValorVendaEl.addEventListener("input", function(){ this.value = mascaraVal(this.value); });
 function toggleValorVendaEdicao() {
+  crmExibirModalidades("mi");
   var op = document.getElementById("mi-op");
   var wrap = document.getElementById("mi-valor-venda-wrap");
   var label = document.getElementById("mi-valor-label");
@@ -7914,6 +7936,15 @@ async function salvarEdicaoImovel() {
     fotos: getFotosBase("mi-foto-grid")
   });
   DB.imoveis[idx].atualizadoEm=new Date().toISOString();
+  var modalidades=crmLerModalidades("mi"), registro=DB.imoveis[idx];
+  Object.keys(modalidades).forEach(function(k){
+    var antes=registro[k]||"Disponível";
+    if(antes!==modalidades[k]){
+      if(!Array.isArray(registro.historicoModalidades))registro.historicoModalidades=[];
+      registro.historicoModalidades.push({campo:k,de:antes,para:modalidades[k],em:registro.atualizadoEm});
+    }
+    registro[k]=modalidades[k];
+  });
   Object.assign(DB.imoveis[idx], captacaoInfo);
   crmSincronizarContatoProprietario(DB.imoveis[idx]);
   if (!crmConfirmarEdicaoDB(anterior, "Não foi possível salvar o imóvel. A janela e suas alterações foram mantidas para tentar novamente.")) return false;
