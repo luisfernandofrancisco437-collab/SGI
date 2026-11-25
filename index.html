@@ -1385,11 +1385,12 @@ header.crm-app-header{display:grid;grid-template-columns:auto minmax(280px,1fr) 
     </div>
   </div>
 
-  <div class="menu-module" id="menu-relacionamento" data-module-tabs="crm,contatos,assistente,agenda">
+  <div class="menu-module" id="menu-relacionamento" data-module-tabs="crm,contatos,para-captar,assistente,agenda">
     <button type="button" class="menu-trigger" onclick="toggleMenuGrupo(event,'menu-relacionamento')">🤝 Relacionamento</button>
     <div class="menu-dropdown">
       <div class="tab" data-tab-id="crm" onclick="showTab('crm')">💼 CRM</div>
       <div class="tab" data-tab-id="contatos" onclick="showTab('contatos')">👥 Contatos</div>
+      <div class="tab" data-tab-id="para-captar" onclick="showTab('para-captar')">🏠 Imóveis para captar</div>
       <div class="tab" data-tab-id="assistente" onclick="showTab('assistente')">✨ Assistente de IA</div>
       <div class="tab" data-tab-id="agenda" onclick="showTab('agenda')">📅 Agenda</div>
     </div>
@@ -2748,6 +2749,14 @@ header.crm-app-header{display:grid;grid-template-columns:auto minmax(280px,1fr) 
 </div>
 
 <!-- ═══════════ CONTATOS ═══════════ -->
+<div id="tab-para-captar" class="panel">
+  <section class="card"><div class="card-header">🏠 Imóveis para captar</div><div class="card-body">
+    <p>Proprietários identificados pelo botão “Cadastrar proprietário no CRM”, mesmo que o imóvel ainda não esteja disponível.</p>
+    <label>Buscar proprietário ou imóvel <input id="captar-busca" type="search" placeholder="Nome, telefone, tipo, bairro ou cidade" oninput="renderParaCaptar()"></label>
+    <p id="captar-total" role="status"></p>
+    <div class="table-wrap"><table><thead><tr><th>Proprietário</th><th>Telefone</th><th>Tipo de imóvel</th><th>Localização</th><th>Operação</th><th>Valor líquido</th><th>Disponibilidade</th><th>Informações complementares</th><th>Contato</th></tr></thead><tbody id="captar-linhas"></tbody></table></div>
+  </div></section>
+</div>
 <div id="tab-contatos" class="panel">
 
   <!-- KPIs contatos -->
@@ -2801,6 +2810,7 @@ header.crm-app-header{display:grid;grid-template-columns:auto minmax(280px,1fr) 
         <div><label>Papel</label>
           <select id="cont-papel" onchange="renderContatos()" style="background:#fff">
             <option value="">Todos</option>
+            <option>Proprietário</option>
             <option>Locador</option><option>Vendedor</option><option>Locador &amp; Vendedor</option><option>Investidor</option>
             <option>Perfil de Compra</option><option>Locatário</option><option>Comprador</option>
           </select>
@@ -3260,6 +3270,7 @@ header.crm-app-header{display:grid;grid-template-columns:auto minmax(280px,1fr) 
           <label>Papel <span class="req">*</span></label>
           <select id="c-papel">
             <option value="">Selecione...</option>
+            <option>Proprietário</option>
             <option>Locador</option>
             <option>Vendedor</option>
             <option>Locador &amp; Vendedor</option>
@@ -6872,7 +6883,7 @@ function waAbrirTeste(){ toast("Conectividade com WhatsApp removida do sistema."
 
 function renderWhatsApp(){}
 document.addEventListener('click', function(e){ if(e.target && e.target.id==='modal-wa-bg') fecharWAConfig(); });
-var TABS = ["dashboard","cadastro","base","consultas","crm","relatorios","followup","followupprop","assistente","redes","contatos","agenda","config","admin"];
+var TABS = ["dashboard","cadastro","base","consultas","crm","relatorios","followup","followupprop","assistente","redes","contatos","para-captar","agenda","config","admin"];
 function crmDataHojeISO() {
   var d = new Date();
   return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
@@ -7127,6 +7138,7 @@ function showTab(id) {
   if (id === "comissoes")   renderComissoes2();
   if (id === "redes")     renderRedesSociais();
   if (id === "contatos")   renderContatos();
+  if (id === "para-captar") renderParaCaptar();
   if (id === "agenda")     renderAgenda();
   if (id === "config")    carregarConfigComissoes();
   if (id === "admin")      { if (!authExigirAdmin()) { showTab("crm"); return; } authRenderUsuarios(); crmFollowupCarregarConfig(); }
@@ -13528,7 +13540,29 @@ function crmAdicionarCodigoImovelContato(atual, novo) {
   return codigos.join(", ");
 }
 
+function contatoParaCaptar(c){
+  return !!c && c.captacaoWhatsApp!=null && typeof c.captacaoWhatsApp==="object" && !Array.isArray(c.captacaoWhatsApp);
+}
+function renderParaCaptar(){
+  var body=document.getElementById("captar-linhas"),total=document.getElementById("captar-total");
+  if(!body||!total)return;
+  body.replaceChildren();total.textContent="";
+  if(crmModoPlataforma()&&!window.CRMPlatform?.canAction("contatos","view"))return;
+  var q=crmPropBuscaTexto(document.getElementById("captar-busca").value.trim()),count=0;
+  (DB.contatos||[]).filter(contatoParaCaptar).forEach(function(c){
+    var f=c.captacaoWhatsApp,tel=c.tel||c.telefone||"",cells=[c.nome,tel,f.tipo,[f.endereco,f.bairro,f.cidade].filter(Boolean).join(" · "),f.operacao,f.valorLiquido,f.disponibilidade,f.complemento];
+    if(q&&!crmPropBuscaTexto(cells.join(" ")).includes(q)&&!crmTelefoneBuscaMatch(tel,q))return;
+    var tr=body.insertRow();cells.forEach(function(v){tr.insertCell().textContent=v||"—";});
+    var cell=tr.insertCell();
+    if(!crmModoPlataforma()||CRMPlatform.canAction("contatos","edit")){
+      var btn=document.createElement("button");btn.type="button";btn.className="btn btn-info";btn.textContent="Abrir ficha";btn.onclick=function(){abrirContato(c.id);};cell.appendChild(btn);
+    }
+    count++;
+  });
+  total.textContent=count===1?"1 proprietário para captação.":count?count+" proprietários para captação.":q?"Nenhum proprietário encontrado nesta busca.":"Nenhum proprietário para captação cadastrado pela extensão.";
+}
 function renderContatos() {
+  if(document.getElementById("tab-para-captar")?.classList.contains("active"))renderParaCaptar();
   clearTimeout(_contatosRenderTimer);
   var tbody = document.getElementById("tbody-contatos");
   var empty = document.getElementById("empty-contatos");
@@ -13543,7 +13577,7 @@ function renderContatos() {
   var lista = DB.contatos.filter(function(ct){
     if (papel && ct.papel !== papel) return false;
     if (q) {
-      var haystack = crmChaveTagLead([ct.nome,ct.tel,ct.email,ct.codigoImovel,ct.codigo,ct.imovelCodigo,ct.papel,ct.obs,(ct.tagsPersonalizadas||[]).join(" ")].join(" "));
+      var haystack = crmChaveTagLead([ct.nome,ct.tel,ct.email,ct.codigoImovel,ct.codigo,ct.imovelCodigo,ct.papel,ct.obs,(ct.tagsPersonalizadas||[]).join(" "),contatoParaCaptar(ct)?"Imóveis para captar":""].join(" "));
       if (!haystack.includes(q) && !crmTelefoneBuscaMatch(ct.tel, qOriginal)) return false;
     }
     return true;
@@ -13575,6 +13609,7 @@ function renderContatos() {
   pagina.forEach(function(ct) {
     var tr = document.createElement("tr");
     var tagsContato = Array.isArray(ct.tagsPersonalizadas) && ct.tagsPersonalizadas.length ? '<div class="pcard-custom-tags">'+ct.tagsPersonalizadas.map(function(tag){return '<span class="pcard-custom-tag">🏷️ '+crmEscAttr(tag)+'</span>';}).join("")+'</div>' : '';
+    if(contatoParaCaptar(ct))tagsContato+='<span class="pcard-custom-tag">IMÓVEIS PARA CAPTAR</span>';
     tr.innerHTML =
             "<td><span class='contact-name' title='"+(ct.nome||"")+"'><b>"+(ct.nome||"-")+"</b></span></td>"+
       "<td>"+(ct.tel||"-")+"</td>"+
@@ -19943,6 +19978,7 @@ window.addEventListener('beforeunload',crmBackupAntesDeFechar);
   function valid(){return !!state.user&&(admin()||['active','due_soon'].includes(state.subscription&&state.subscription.status));}
   var tabModule={dashboard:'relatorios',cadastro:'cadastro',base:'cadastro',consultas:'cadastro',crm:'crm',contatos:'contatos',agenda:'agenda',followup:'followup',followupprop:'followup',config:'configuracoes',relatorios:'relatorios',assistente:'assistente',redes:'redes',comissoes:'financeiro'};
   function canTab(id){if(id==='assinaturas'||id==='admin')return admin();if(!state.ready||!valid())return false;if(!allowed(tabModule[id]||id,'view')){note('Seu perfil não permite visualizar este módulo.',true);return false;}return true;}
+  tabModule['para-captar']='contatos';
   function block(message){
     var box=el('platform-gate');box.hidden=false;box.querySelector('[data-gate-text]').textContent=message;
     box.querySelector('[data-gate-admin]').hidden=!admin();
