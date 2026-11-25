@@ -1489,6 +1489,7 @@ header.crm-app-header{display:grid;grid-template-columns:auto minmax(280px,1fr) 
   <div class="card">
     <div class="card-header">📋 Novo Cadastro de Imóvel</div>
     <div class="card-body">
+      <div id="cap-origem-aviso" hidden><strong>Efetivação de captação</strong> · Confira os dados e complete os campos obrigatórios. A oportunidade permanece na origem até a confirmação. <button type="button" class="btn btn-info" onclick="capCancelarTransferencia()">Cancelar efetivação</button></div>
       <div class="form-grid">
         <div>
           <label>Código do Imóvel <span class="req">*</span></label>
@@ -2751,12 +2752,19 @@ header.crm-app-header{display:grid;grid-template-columns:auto minmax(280px,1fr) 
 <!-- ═══════════ CONTATOS ═══════════ -->
 <div id="tab-para-captar" class="panel">
   <section class="card"><div class="card-header">🏠 Imóveis para captar</div><div class="card-body">
-    <p>Proprietários identificados pelo botão “Cadastrar proprietário no CRM”, mesmo que o imóvel ainda não esteja disponível.</p>
+    <p>Oportunidades cadastradas manualmente ou pelo WhatsApp. Cada linha corresponde a um imóvel, mesmo quando o proprietário é o mesmo.</p>
+    <button type="button" id="cap-nova" class="btn btn-primary" onclick="capEditar()">+ Nova oportunidade</button>
     <label>Buscar proprietário ou imóvel <input id="captar-busca" type="search" placeholder="Nome, telefone, tipo, bairro ou cidade" oninput="renderParaCaptar()"></label>
     <p id="captar-total" role="status"></p>
-    <div class="table-wrap"><table><thead><tr><th>Proprietário</th><th>Telefone</th><th>Tipo de imóvel</th><th>Localização</th><th>Operação</th><th>Valor líquido</th><th>Disponibilidade</th><th>Informações complementares</th><th>Contato</th></tr></thead><tbody id="captar-linhas"></tbody></table></div>
+    <div class="table-wrap"><table><thead><tr><th>Ações</th><th>Proprietário</th><th>Telefone</th><th>Tipo de imóvel</th><th>Localização</th><th>Operação</th><th>Valor líquido</th><th>Disponibilidade</th><th>Informações complementares</th><th>Cadastro</th><th>Última alteração</th></tr></thead><tbody id="captar-linhas"></tbody></table></div>
   </div></section>
 </div>
+<dialog id="cap-editor" style="width:min(680px,94vw);max-height:86vh;overflow:auto;border:0;border-radius:14px;padding:24px"><form id="cap-form" onsubmit="event.preventDefault();capSalvarManual()">
+  <h2 id="cap-titulo">Nova oportunidade</h2><p>Nome e telefone identificam o proprietário. Os demais campos podem ser preenchidos depois.</p>
+  <div class="form-grid" id="cap-campos"></div><p id="cap-erro" role="status"></p>
+  <button class="btn btn-primary" type="submit">Salvar oportunidade</button>
+  <button class="btn btn-info" type="button" onclick="document.getElementById('cap-editor').close()">Cancelar</button>
+</form></dialog>
 <div id="tab-contatos" class="panel">
 
   <!-- KPIs contatos -->
@@ -7115,6 +7123,11 @@ document.addEventListener("keydown", function(ev){
 
 function showTab(id) {
   if(crmModoPlataforma() && (!window.CRMPlatform || !CRMPlatform.canTab(id)))return;
+  if(capTransfer && id!=="cadastro"){
+    if(capGravando){toast("Aguarde a confirmação da captação.",true);return;}
+    if(!confirm("Sair do cadastro sem efetivar? A oportunidade será mantida."))return;
+    limparFormImovel();
+  }
   organizarCRMRelatorios();
   document.querySelectorAll(".tab").forEach(function(el) {
     el.classList.toggle("active", (el.getAttribute("data-tab-id") || "") === id);
@@ -7765,11 +7778,14 @@ var _prevValorEl = document.getElementById("prev-valor");
 if (_prevValorEl) _prevValorEl.addEventListener("input", function(){ this.value = mascaraVal(this.value); });
 
 async function salvarImovel() {
+  if(capGravando)return false;
+  const origemAoSalvar=capTransfer;
   if (_DB_CARREGAMENTO_PENDENTE) { toast("Aguarde o carregamento do CRM antes de salvar o imóvel.", true); return false; }
   if (_crmFotosPendentes.f) {
     toast("🖼️ Aguarde: concluindo o processamento das fotos...");
     await _crmFotosPendentes.f;
   }
+  if(origemAoSalvar!==capTransfer||capGravando)return false;
   if (_DB_CARREGAMENTO_PENDENTE) { toast("Aguarde o carregamento do CRM antes de salvar o imóvel.", true); return false; }
   var g = function(id){ return document.getElementById(id).value.trim(); };
   var campos = {codigo:crmNormalizarCodigoImovelManual(g("f-codigo")), prop:g("f-prop"), tel:g("f-tel"), rua:g("f-rua"), bairro:g("f-bairro"),
@@ -7806,10 +7822,14 @@ async function salvarImovel() {
   };
   Object.assign(novoImovel, captacaoInfo);
   Object.assign(novoImovel,crmLerModalidades("f"));
+  if(capTransfer){
+    if(!await capConcluir(novoImovel))return false;
+  }else{
   var anterior = crmCapturarEdicaoDB(["imoveis","contatos","cSeq"]);
   DB.imoveis.push(novoImovel);
   crmSincronizarContatoProprietario(novoImovel);
   if (!crmConfirmarEdicaoDB(anterior, "Não foi possível salvar o imóvel. Os campos e as fotos foram mantidos para tentar novamente.")) return false;
+  }
   limparFormImovel();
   renderBonusCaptacao();
   toast("✅ Imóvel " + cod + " cadastrado e salvo!"+(crmImovelAceitaOperacao(novoImovel,"Locação") ? " Dados da captação incluídos no cadastro." : ""));
@@ -7818,6 +7838,10 @@ async function salvarImovel() {
 }
 
 function limparFormImovel() {
+  if(capGravando)return;
+  capTransfer=null;
+  document.getElementById("cap-origem-aviso").hidden=true;
+  for(const id of ["f-prop","f-tel"])document.getElementById(id).readOnly=false;
   document.getElementById("f-status-venda").selectedIndex=0;
   document.getElementById("f-status-locacao").selectedIndex=0;
   ["f-codigo","f-prop","f-tel","f-rua","f-bairro","f-cidade","f-tipo","f-valor","f-valor-venda","f-op","f-disp",
@@ -13540,8 +13564,150 @@ function crmAdicionarCodigoImovelContato(atual, novo) {
   return codigos.join(", ");
 }
 
-function contatoParaCaptar(c){
-  return !!c && c.captacaoWhatsApp!=null && typeof c.captacaoWhatsApp==="object" && !Array.isArray(c.captacaoWhatsApp);
+var capTransfer=null,capEditor=null,capGravando=false;
+var capLabels={nome:"Nome do proprietário",tel:"Telefone com DDD",tipo:"Tipo de imóvel",endereco:"Rua e número",bairro:"Bairro",cidade:"Cidade / UF",operacao:"Operação",valorLiquido:"Valor líquido pretendido",disponibilidade:"Disponibilidade",complemento:"Informações complementares"};
+function capLista(c){
+  if(!c)return [];
+  var wa=c.captacaoWhatsApp;
+  return (wa&&typeof wa==="object"&&!Array.isArray(wa)?[{key:"wa",f:wa}]:[])
+    .concat((Array.isArray(c.oportunidadesCaptacao)?c.oportunidadesCaptacao:[]).filter(f=>f&&f.id).map(f=>({key:f.id,f})));
+}
+function contatoParaCaptar(c){return capLista(c).some(x=>!x.f.efetivadoCodigo);}
+function capPode(mod,acao){return !crmModoPlataforma()||!!window.CRMPlatform?.canAction(mod,acao);}
+function capEmpresa(){const s=window.CRMPlatform?.state;return JSON.stringify([s?.companyId,s?.user?.id]);}
+function capRef(c,key){return {empresa:capEmpresa(),id:c?.id,key,assinatura:capAssinatura(c,key)};}
+function capAssinatura(c,key){return JSON.stringify([c?.nome,c?.tel||c?.telefone,capLista(c).find(x=>x.key===key)?.f]);}
+function capResolver(ref){
+  if(ref.empresa!==capEmpresa())throw Error("A empresa ou a sessão mudou. Reabra a oportunidade.");
+  const c=DB.contatos.find(c=>c.id===ref.id),f=capLista(c).find(x=>x.key===ref.key)?.f;
+  if((ref.id&&!c)||(ref.key&&(!f||f.efetivadoCodigo))||ref.assinatura!==capAssinatura(c,ref.key))throw Error("O registro mudou. Reabra a oportunidade para continuar.");
+  return {c,f};
+}
+function capEditar(c,key){
+  if(capGravando||!capPode("contatos",c?"edit":"create"))return;
+  capEditor=capRef(c,key);const f=capLista(c).find(x=>x.key===key)?.f||{};
+  const box=document.getElementById("cap-campos");box.replaceChildren();
+  for(const [k,label] of Object.entries(capLabels)){
+    const l=document.createElement("label"),input=document.createElement(k==="complemento"?"textarea":"input");
+    l.textContent=label;input.name=k;input.required=["nome","tel"].includes(k);input.maxLength=k==="complemento"?2000:250;
+    input.value=k==="nome"?c?.nome||"":k==="tel"?c?.tel||c?.telefone||"":f[k]||"";
+    l.append(input);box.append(l);
+  }
+  document.getElementById("cap-titulo").textContent=key?"Editar oportunidade":c?"Outro imóvel deste proprietário":"Nova oportunidade";
+  document.getElementById("cap-erro").textContent="";
+  document.getElementById("cap-editor").showModal();
+}
+async function capPersistir(){
+  if(_DB_CARREGAMENTO_PENDENTE)throw Error("Aguarde o carregamento da base.");
+  if(crmModoPlataforma()){await CRMPlatform.saveConfirmed();return;}
+  if(!salvarContatosAgora(true)||!salvarDB())throw Error("Não foi possível confirmar a gravação local.");
+}
+function capAplicar(c,key,campos){
+  // Copy only the opportunity being edited; unrelated properties retain their identity.
+  if(key==="wa")c.captacaoWhatsApp=campos;
+  else c.oportunidadesCaptacao=(c.oportunidadesCaptacao||[]).filter(x=>x.id!==key).concat(campos);
+}
+// Also covers older WhatsApp extensions and changes made in the regular contact editor.
+function capRegistrarDatas(contatos,confirmados){
+  if(!Array.isArray(contatos)||!Array.isArray(confirmados))return;
+  const anteriores=new Map(confirmados.map(c=>[c.id,c])),agora=new Date().toISOString();
+  for(const c of contatos){
+    if(!contatoParaCaptar(c))continue;
+    const old=anteriores.get(c.id);
+    if(old&&(old.nome!==c.nome||old.tel!==c.tel))c.capDonoAlteradoEm=agora;
+    if(!c.captacaoWhatsApp)continue;
+    const f=c.captacaoWhatsApp,prev=old?.captacaoWhatsApp;
+    if(!prev){if(!f.criadoEm)f.criadoEm=agora;if(!f.alteradoEm)f.alteradoEm=f.criadoEm;}
+    else if(Object.keys(capLabels).some(k=>f[k]!==prev[k])&&f.alteradoEm===prev.alteradoEm)f.alteradoEm=agora;
+  }
+}
+async function capSalvarManual(){
+  if(capGravando||!capEditor)return;
+  const dialog=document.getElementById("cap-editor"),form=document.getElementById("cap-form"),err=document.getElementById("cap-erro");
+  let before,next;
+  capGravando=true;form.inert=true;
+  try{
+    let {c,f}=capResolver(capEditor);
+    const vals=Object.fromEntries(Array.from(new FormData(form),([k,v])=>[k,v.trim()]));
+    const {nome,tel,...dados}=vals;
+    if(!nome||!/^[+\d() .-]+$/.test(tel)||!crmTelefoneBuscaMatch(tel,tel))throw Error("Informe o nome e um telefone válido com DDD.");
+    const iguais=DB.contatos.filter(x=>crmTelefoneBuscaMatch(x.tel||x.telefone,tel));
+    if(iguais.length>1||(c&&iguais.some(x=>x.id!==c.id)))throw Error("Este telefone identifica outro cadastro. Confira os contatos antes de salvar.");
+    if(!c&&iguais.length){
+      c=iguais[0];
+      if(crmPropBuscaTexto(c.nome)!==crmPropBuscaTexto(nome))throw Error("Este telefone já está cadastrado em outro nome. Confira o proprietário.");
+    }
+    if(!capPode("contatos","view")||!capPode("contatos",c?"edit":"create"))throw Error("Seu perfil não permite esta gravação.");
+    const agora=new Date().toISOString();
+    if(f&&nome===c.nome&&tel===(c.tel||c.telefone)&&Object.entries(dados).every(([k,v])=>v===(f[k]||""))){dialog.close();return;}
+    before=c;
+    if(c)next={...c};
+    else{
+      let seq=Number(DB.cSeq);if(!Number.isSafeInteger(seq)||seq<1)seq=1;
+      let id;do{id="C"+String(seq++).padStart(3,"0");}while(DB.contatos.some(x=>x.id===id));
+      DB.cSeq=seq;next={id,papel:"Proprietário",data:new Date().toLocaleDateString("pt-BR"),criadoEm:agora};
+    }
+    if(c&&(nome!==c.nome||tel!==(c.tel||c.telefone)))next.capDonoAlteradoEm=agora;
+    Object.assign(next,{nome,tel,atualizadoEm:agora});
+    const key=capEditor.key||crypto.randomUUID();
+    capAplicar(next,key,{...(f||{id:key,criadoEm:agora}),...dados,alteradoEm:agora});
+    if(c)DB.contatos[DB.contatos.indexOf(c)]=next;else DB.contatos.push(next);
+    await capPersistir();dialog.close();renderContatos();toast("Oportunidade salva.");
+  }catch(e){
+    const i=DB.contatos.indexOf(next);if(i>=0){if(before)DB.contatos[i]=before;else DB.contatos.splice(i,1);}
+    err.textContent=e.message;
+  }finally{capGravando=false;form.inert=false;}
+}
+function capCancelarTransferencia(){if(!capGravando){limparFormImovel();showTab("para-captar");}}
+function capEfetivar(c,key){
+  if(capGravando||!capPode("cadastro","create")||!capPode("cadastro","view")||!capPode("contatos","edit"))return;
+  const f=capLista(c).find(x=>x.key===key)?.f;if(!f||f.efetivadoCodigo)return;
+  if(_crmFotosPendentes.f){toast("Aguarde o processamento das fotos do cadastro em andamento.",true);return;}
+  const dirty=[...document.querySelectorAll('#tab-cadastro [id^="f-"]')].some(el=>
+    (el.matches("input:not([type=checkbox]),textarea")&&el.value)||
+    (el.matches("input[type=checkbox]")&&el.checked!==el.defaultChecked)||
+    (el.matches("select")&&el.id!=="f-captacao-responsavel"&&el.selectedIndex>0))||
+    document.querySelector("#f-diferenciais-wrap input:checked")||getFotosBase("f-foto-grid").length;
+  if(dirty&&!confirm("Substituir o rascunho atual de Cadastro de Imóveis pelos dados desta oportunidade?"))return;
+  showTab("cadastro");limparFormImovel();capTransfer=capRef(c,key);
+  const set=(k,v)=>{document.getElementById("f-"+k).value=v||"";};
+  set("prop",c.nome);set("tel",c.tel||c.telefone);set("rua",f.endereco);set("bairro",f.bairro);set("cidade",f.cidade);
+  for(const k of ["prop","tel"])document.getElementById("f-"+k).readOnly=true;
+  const pend=[];
+  for(const [k,v] of [["tipo",f.tipo],["op",f.operacao],["disp",f.disponibilidade]]){
+    if(!v)continue;
+    let norm=crmPropBuscaTexto(v).trim();
+    if(k==="op"){norm=norm.replace(/vender/g,"venda").replace(/alugar/g,"locacao");if(/^(locacao (e|ou) venda|venda (e|ou) locacao|ambas)$/.test(norm))norm="locacao e venda";}
+    const opt=[...document.getElementById("f-"+k).options].find(o=>crmPropBuscaTexto(o.value)===norm);
+    if(opt)set(k,opt.value);else pend.push(({tipo:"Tipo",op:"Operação",disp:"Disponibilidade"})[k]+": "+v);
+  }
+  toggleValorVendaCadastro();
+  // Net proceeds are not the advertised price (particularly for dual modality).
+  set("obs",[f.valorLiquido&&"Valor líquido pretendido: "+f.valorLiquido,...pend,f.complemento].filter(Boolean).join("\n"));
+  document.getElementById("cap-origem-aviso").hidden=false;document.getElementById("f-codigo").focus();
+}
+async function capConcluir(im){
+  if(!capTransfer||capGravando)return false;
+  const ref=capTransfer;let before,next;
+  const card=document.getElementById("cap-origem-aviso").parentElement;
+  capGravando=true;card.inert=true;card.setAttribute("aria-busy","true");
+  try{
+    if(!capPode("cadastro","create")||!capPode("contatos","edit")||!capPode("contatos","view"))throw Error("Sem permissão para efetivar.");
+    if(!crmModoPlataforma())throw Error("Use o CRM online para confirmar o imóvel e a captação em uma única gravação.");
+    const {c,f}=capResolver(ref);before=c;
+    if(!c||!f||im.prop!==c.nome||im.tel!==(c.tel||c.telefone))throw Error("Confira os dados do proprietário na oportunidade.");
+    const agora=new Date().toISOString();
+    im.origemOportunidade={contatoId:c.id,oportunidadeId:ref.key};
+    next={...c,codigoImovel:crmAdicionarCodigoImovelContato(c.codigoImovel||c.codigo||c.imovelCodigo||"",im.codigo),atualizadoEm:agora};
+    capAplicar(next,ref.key,{...f,efetivadoCodigo:im.codigo,efetivadoEm:agora,alteradoEm:agora});
+    DB.contatos[DB.contatos.indexOf(c)]=next;DB.imoveis.push(im);
+    await capPersistir();
+    return true;
+  }catch(e){
+    const n=DB.imoveis.indexOf(im);if(n>=0)DB.imoveis.splice(n,1);
+    const i=DB.contatos.indexOf(next);if(i>=0)DB.contatos[i]=before;
+    toast(e.message,true);return false;
+  }finally{capGravando=false;card.inert=false;card.removeAttribute("aria-busy");}
 }
 function renderParaCaptar(){
   var body=document.getElementById("captar-linhas"),total=document.getElementById("captar-total");
@@ -13549,17 +13715,22 @@ function renderParaCaptar(){
   body.replaceChildren();total.textContent="";
   if(crmModoPlataforma()&&!window.CRMPlatform?.canAction("contatos","view"))return;
   var q=crmPropBuscaTexto(document.getElementById("captar-busca").value.trim()),count=0;
-  (DB.contatos||[]).filter(contatoParaCaptar).forEach(function(c){
-    var f=c.captacaoWhatsApp,tel=c.tel||c.telefone||"",cells=[c.nome,tel,f.tipo,[f.endereco,f.bairro,f.cidade].filter(Boolean).join(" · "),f.operacao,f.valorLiquido,f.disponibilidade,f.complemento];
+  document.getElementById("cap-nova").hidden=!capPode("contatos","create");
+  (DB.contatos||[]).forEach(function(c){capLista(c).filter(x=>!x.f.efetivadoCodigo).forEach(function({key,f}){
+    const data=v=>v?new Date(v).toLocaleString("pt-BR"):"Não registrada";
+    var tel=c.tel||c.telefone||"",cells=[c.nome,tel,f.tipo,[f.endereco,f.bairro,f.cidade].filter(Boolean).join(" · "),f.operacao,f.valorLiquido,f.disponibilidade,f.complemento,data(f.criadoEm),data([f.alteradoEm,f.criadoEm,c.capDonoAlteradoEm].filter(Boolean).sort().pop())];
     if(q&&!crmPropBuscaTexto(cells.join(" ")).includes(q)&&!crmTelefoneBuscaMatch(tel,q))return;
-    var tr=body.insertRow();cells.forEach(function(v){tr.insertCell().textContent=v||"—";});
+    var tr=body.insertRow();
     var cell=tr.insertCell();
     if(!crmModoPlataforma()||CRMPlatform.canAction("contatos","edit")){
-      var btn=document.createElement("button");btn.type="button";btn.className="btn btn-info";btn.textContent="Abrir ficha";btn.onclick=function(){abrirContato(c.id);};cell.appendChild(btn);
+      const botao=(nome,acao)=>{const b=document.createElement("button");b.type="button";b.className="btn btn-info";b.textContent=nome;b.onclick=acao;cell.appendChild(b);};
+      botao("Editar",()=>capEditar(c,key));botao("+ Outro imóvel",()=>capEditar(c));
+      if(capPode("cadastro","view")&&capPode("cadastro","create"))botao("Efetivar Captação",()=>capEfetivar(c,key));
     }
+    cells.forEach(function(v){tr.insertCell().textContent=v||"—";});
     count++;
-  });
-  total.textContent=count===1?"1 proprietário para captação.":count?count+" proprietários para captação.":q?"Nenhum proprietário encontrado nesta busca.":"Nenhum proprietário para captação cadastrado pela extensão.";
+  });});
+  total.textContent=count===1?"1 imóvel para captar.":count?count+" imóveis para captar.":q?"Nenhuma oportunidade encontrada nesta busca.":"Nenhum imóvel para captar.";
 }
 function renderContatos() {
   if(document.getElementById("tab-para-captar")?.classList.contains("active"))renderParaCaptar();
@@ -20098,6 +20269,7 @@ window.addEventListener('beforeunload',crmBackupAntesDeFechar);
   }
   function saveDB(data){
     if(!state.ready||!valid()||(!state.companyId&&admin()))return false;
+    if(typeof capRegistrarDatas==='function')capRegistrarDatas(DB.contatos,state.ackData?.contatos);
     var snap=snapshotPermitido(),company=state.companyId,owner=state.user&&state.user.id;
     var current=function(){return state.companyId===company&&(state.user&&state.user.id)===owner;};
     state.pending++;syncStatus('Alterações em envio ao servidor…');
