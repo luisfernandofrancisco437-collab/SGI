@@ -1257,6 +1257,44 @@ header.crm-app-header{display:grid;grid-template-columns:auto minmax(280px,1fr) 
   .crm-app-header>.backup-bar>.btn-backup,.crm-app-header>.backup-bar>.btn-publicar{min-height:40px;padding:8px 10px;font-size:.75rem}
   .crm-app-header .auth-user-area{margin-left:auto}
 }
+/* Espaço de trabalho das oportunidades: não altera as outras abas do CRM. */
+#tab-para-captar{width:100%;max-width:none;padding:clamp(10px,1.4vw,24px)}
+#tab-para-captar .card-body{display:grid;gap:14px;padding:clamp(12px,1.4vw,24px)}
+#tab-para-captar .cap-toolbar{display:flex;align-items:end;flex-wrap:wrap;gap:12px}
+#tab-para-captar .cap-toolbar label{flex:0 1 480px;min-width:0;margin:0}
+#tab-para-captar .cap-toolbar input{display:block;height:40px;margin:4px 0 0}
+#cap-nova{height:40px;justify-content:center;white-space:nowrap}
+#captar-total{font-size:.85rem;color:#475569}
+#tab-para-captar :is(th,td){padding:10px;font-size:.82rem}
+#tab-para-captar th{white-space:normal}
+#tab-para-captar .cap-acoes{white-space:nowrap}
+#tab-para-captar .cap-acoes .btn{padding:6px 9px;min-height:34px;line-height:1.2;font-size:.76rem;justify-content:center;white-space:nowrap;margin:0;box-shadow:none}
+#tab-para-captar .cap-acoes .btn+.btn{margin-inline-start:8px}
+#cap-editor{box-sizing:border-box;width:min(960px,calc(100% - 28px));max-height:90vh;max-height:90dvh;overflow:auto;margin:auto;padding:clamp(16px,2.5vw,32px);border:0;border-radius:16px;color:var(--texto)}
+#cap-editor::backdrop{background:rgba(15,23,42,.48)}
+#cap-form{display:grid;gap:12px}
+#cap-campos{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 20px}
+#cap-campos label{margin:0}#cap-campos :is(input,textarea){display:block;margin-top:5px}
+#cap-campos label:last-child{grid-column:1/-1}
+#cap-erro:empty{display:none}
+#cap-editor .cap-form-actions{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:10px}
+@media(max-width:760px){
+  #tab-para-captar .table-wrap{background:transparent;border:0;box-shadow:none}
+  #tab-para-captar table,#tab-para-captar tbody{display:block}
+  #tab-para-captar thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+  #captar-linhas tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:14px;border:1px solid #d6dee6;border-radius:12px;background:#fff;margin-bottom:10px}
+  #tab-para-captar #captar-linhas td{padding:0;min-width:0;overflow-wrap:anywhere;white-space:normal}
+  #captar-linhas td[data-label]::before{content:attr(data-label);display:block;font-weight:700;font-size:.72rem;color:#475569;margin-bottom:3px}
+  #captar-linhas .cap-acoes{order:1;grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px;border-top:1px solid #e2e8f0;padding-top:10px!important}
+  #captar-linhas .cap-acoes:empty{display:none}
+  #tab-para-captar .cap-acoes .btn+.btn{margin:0}
+  #tab-para-captar .cap-acoes .btn{min-height:40px}
+  #cap-campos{grid-template-columns:1fr}
+}
+@media(max-width:480px){
+  #tab-para-captar .cap-toolbar{display:grid;grid-template-columns:minmax(0,1fr)}
+  #cap-nova{justify-self:start}
+}
 </style>
 <meta name="robots" content="noindex,nofollow,noarchive">
 </head>
@@ -2753,17 +2791,20 @@ header.crm-app-header{display:grid;grid-template-columns:auto minmax(280px,1fr) 
 <div id="tab-para-captar" class="panel">
   <section class="card"><div class="card-header">🏠 Imóveis para captar</div><div class="card-body">
     <p>Oportunidades cadastradas manualmente ou pelo WhatsApp. Cada linha corresponde a um imóvel, mesmo quando o proprietário é o mesmo.</p>
-    <button type="button" id="cap-nova" class="btn btn-primary" onclick="capEditar()">+ Nova oportunidade</button>
+    <div class="cap-toolbar">
     <label>Buscar proprietário ou imóvel <input id="captar-busca" type="search" placeholder="Nome, telefone, tipo, bairro ou cidade" oninput="renderParaCaptar()"></label>
+    <button type="button" id="cap-nova" class="btn btn-primary" onclick="capEditar()">+ Nova oportunidade</button>
+    </div>
     <p id="captar-total" role="status"></p>
     <div class="table-wrap"><table><thead><tr><th>Ações</th><th>Proprietário</th><th>Telefone</th><th>Tipo de imóvel</th><th>Localização</th><th>Operação</th><th>Valor líquido</th><th>Disponibilidade</th><th>Informações complementares</th><th>Cadastro</th><th>Última alteração</th></tr></thead><tbody id="captar-linhas"></tbody></table></div>
   </div></section>
 </div>
-<dialog id="cap-editor" style="width:min(680px,94vw);max-height:86vh;overflow:auto;border:0;border-radius:14px;padding:24px"><form id="cap-form" onsubmit="event.preventDefault();capSalvarManual()">
+<dialog id="cap-editor" aria-labelledby="cap-titulo"><form id="cap-form" onsubmit="event.preventDefault();capSalvarManual()">
   <h2 id="cap-titulo">Nova oportunidade</h2><p>Nome e telefone identificam o proprietário. Os demais campos podem ser preenchidos depois.</p>
   <div class="form-grid" id="cap-campos"></div><p id="cap-erro" role="status"></p>
-  <button class="btn btn-primary" type="submit">Salvar oportunidade</button>
+  <div class="cap-form-actions"><button class="btn btn-primary" type="submit">Salvar oportunidade</button>
   <button class="btn btn-info" type="button" onclick="document.getElementById('cap-editor').close()">Cancelar</button>
+  </div>
 </form></dialog>
 <div id="tab-contatos" class="panel">
 
@@ -13716,18 +13757,19 @@ function renderParaCaptar(){
   if(crmModoPlataforma()&&!window.CRMPlatform?.canAction("contatos","view"))return;
   var q=crmPropBuscaTexto(document.getElementById("captar-busca").value.trim()),count=0;
   document.getElementById("cap-nova").hidden=!capPode("contatos","create");
+  const rotulos=Array.from(body.closest("table").tHead.rows[0].cells,th=>th.textContent);
   (DB.contatos||[]).forEach(function(c){capLista(c).filter(x=>!x.f.efetivadoCodigo).forEach(function({key,f}){
     const data=v=>v?new Date(v).toLocaleString("pt-BR"):"Não registrada";
     var tel=c.tel||c.telefone||"",cells=[c.nome,tel,f.tipo,[f.endereco,f.bairro,f.cidade].filter(Boolean).join(" · "),f.operacao,f.valorLiquido,f.disponibilidade,f.complemento,data(f.criadoEm),data([f.alteradoEm,f.criadoEm,c.capDonoAlteradoEm].filter(Boolean).sort().pop())];
     if(q&&!crmPropBuscaTexto(cells.join(" ")).includes(q)&&!crmTelefoneBuscaMatch(tel,q))return;
     var tr=body.insertRow();
-    var cell=tr.insertCell();
+    var cell=tr.insertCell();cell.className="cap-acoes";
     if(!crmModoPlataforma()||CRMPlatform.canAction("contatos","edit")){
       const botao=(nome,acao)=>{const b=document.createElement("button");b.type="button";b.className="btn btn-info";b.textContent=nome;b.onclick=acao;cell.appendChild(b);};
       botao("Editar",()=>capEditar(c,key));botao("+ Outro imóvel",()=>capEditar(c));
       if(capPode("cadastro","view")&&capPode("cadastro","create"))botao("Efetivar Captação",()=>capEfetivar(c,key));
     }
-    cells.forEach(function(v){tr.insertCell().textContent=v||"—";});
+    cells.forEach(function(v,i){const td=tr.insertCell();td.dataset.label=rotulos[i+1];td.textContent=v||"—";});
     count++;
   });});
   total.textContent=count===1?"1 imóvel para captar.":count?count+" imóveis para captar.":q?"Nenhuma oportunidade encontrada nesta busca.":"Nenhum imóvel para captar.";
