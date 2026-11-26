@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow,noarchive"><meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; connect-src https://xwettgyajktagtqpbpnk.supabase.co; img-src blob: data:; form-action 'none'; base-uri 'none'">
+<title>Enviar imóvel para avaliação · CRM SGI</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#eff4f4;color:#193033;font:1rem/1.5 system-ui,sans-serif}main{width:min(100% - 24px,740px);margin:32px auto}header,form{background:white;padding:clamp(18px,4vw,34px);border-radius:16px;margin:12px 0}header{background:#173e43;color:white}header small{color:#c2dfda;font-weight:bold;letter-spacing:.08em}h1{font-size:clamp(1.6rem,4vw,2.1rem);line-height:1.15}fieldset{border:0;padding:0;margin:0 0 24px}legend{font-size:1.15rem;font-weight:700;margin-bottom:10px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}label{display:grid;gap:4px;font-size:.94rem}.full{grid-column:1/-1}input,select,textarea,button{font:inherit;padding:10px;border-radius:8px;border:1px solid #9caeb0;min-width:0;width:100%}textarea{min-height:85px}button{background:#12594f;color:white;font-weight:700;border:0;cursor:pointer}button:disabled{opacity:.6}#status{padding:10px 0;font-weight:600}#status:empty{display:none}[hidden]{display:none!important}@media(max-width:540px){main{margin:12px auto}.grid{grid-template-columns:1fr}}
+</style></head><body><main>
+<header><small>CRM SGI · CADASTRO DO PROPRIETÁRIO</small><h1>Apresente seu imóvel</h1><p>Os dados e as fotos serão enviados ao corretor para revisão. O envio não publica o anúncio.</p></header>
+<form id="form" hidden><fieldset><legend>Seus dados</legend><div class="grid">
+<label>Nome *<input name="nome" autocomplete="name" required maxlength="160"></label>
+<label>Telefone com DDD *<input name="tel" type="tel" autocomplete="tel" required maxlength="22"></label>
+<label class="full">E-mail (opcional)<input name="email" type="email" autocomplete="email" maxlength="180"></label>
+</div></fieldset><fieldset><legend>Dados do imóvel</legend><div class="grid">
+<label>Tipo *<select name="tipo" required><option value="">Selecione</option><option>Casa</option><option>Apartamento</option><option>Terreno</option><option>Galpão</option><option>Sala</option><option>Comercial</option><option>Outro</option></select></label>
+<label>Operação *<select name="op" required><option value="">Selecione</option><option>Venda</option><option>Locação</option><option>Locação e Venda</option></select></label>
+<label class="full">Rua e número *<input name="rua" required maxlength="180"></label>
+<label>Bairro *<input name="bairro" required maxlength="180"></label><label>Cidade / UF *<input name="cidade" required maxlength="180"></label>
+<label>Condomínio<input name="cond" maxlength="160"></label><label>Área (m²)<input type="number" name="area" min="0" step=".01"></label>
+<label>Quartos<select name="quartos"><option value="">Não informado</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>5+</option></select></label>
+<label>Vagas<select name="vagas"><option value="">Não informado</option><option>0</option><option>1</option><option>2</option><option>3</option><option>4+</option></select></label>
+<label><span id="price">Preço pretendido (R$) *</span><input name="valor" type="number" min=".01" max="999999999999" step=".01" required></label>
+<label id="sale" hidden>Valor de venda (R$) *<input name="valorVenda" type="number" min=".01" max="999999999999" step=".01"></label>
+<label class="full">Informações complementares<textarea name="obs" maxlength="1800"></textarea></label>
+</div></fieldset><fieldset><legend>Fotos do imóvel</legend><label>Até 6 fotos JPEG, PNG ou WebP, de até 12 MB cada. Não inclua documentos ou fotos pessoais.
+<input type="file" id="photos" multiple accept="image/jpeg,image/png,image/webp"></label></fieldset>
+<p>Envie somente dados que você autoriza o corretor a usar para avaliar e entrar em contato sobre este imóvel.</p>
+<button id="submit">Enviar para revisão</button></form>
+<p id="status" role="status" aria-live="polite">Verificando o formato do convite…</p><noscript>Ative o JavaScript para usar o formulário.</noscript>
+</main><script src="cadastro-proprietario.js" defer></script></body></html>
