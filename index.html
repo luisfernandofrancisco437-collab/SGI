@@ -9065,22 +9065,28 @@ function _crmTipoHB(tipo){
 }
 function crmHouseBrokersUrl(n){
   n = n || {};
+  // O portal aceita reais inteiros; use somente os que cabem na faixa do Match.
+  var faixa = crmHouseValorFaixa(n);
+  var minimo = Math.ceil(faixa.min), maximo = Math.floor(faixa.max);
+  if(!maximo || minimo > maximo)return '';
   var locacao=(n.op||"").toLowerCase().indexOf("loc")>=0;
   var op = locacao ? "para-alugar" : "a-venda";
   var tipo = _crmTipoHB(n.tipoImovel || "");
   var cidade=_crmCidadeMatchCanon(n.cidadeInteresse);
-  var faixa=crmHouseValorFaixa(n);
   var url="https://www.housebrokersbrasil.com.br/imoveis/"+op+(tipo?"/"+encodeURIComponent(tipo):"")+(cidade?'/'+encodeURIComponent(cidade):'');
-  if(faixa.min>0&&faixa.max>0)url+='?'+(locacao?'preco-de-locacao':'preco-de-venda')+'='+Math.floor(faixa.min)+'~'+Math.ceil(faixa.max);
-  return url;
+  return url+'?'+(locacao?'preco-de-locacao':'preco-de-venda')+'='+minimo+'~'+maximo;
 }
 function crmHousePesquisaHtml(n){
   if(!crmHousePerfilCompleto(n))return '';
-  return '<div class="crm-house-pesquisa"><a class="btn btn-info" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" href="'+crmEscAttr(crmHouseBrokersUrl(n))+'">Pesquisar imóveis</a></div>';
+  var url=crmHouseBrokersUrl(n);
+  if(!url)return '';
+  return '<div class="crm-house-pesquisa"><a class="btn btn-info" target="_blank" rel="noopener noreferrer" title="Pesquisar imóveis de 10% abaixo até 10% acima do valor do card" onclick="event.stopPropagation()" href="'+crmEscAttr(url)+'">Pesquisar imóveis</a></div>';
 }
 function crmHouseValorFaixa(n){
-  var valor = Number(n && n.valor || 0);
-  return { min: valor ? Math.max(0, valor * 0.8) : 0, max: valor ? valor * 1.2 : 0 };
+  var centavos = Math.round(Number(n && n.valor) * 100);
+  if(centavos <= 0 || !Number.isSafeInteger(centavos * 11))return {min:0,max:0};
+  // Limites inclusivos de 90% a 110%, sem incluir centavos fora da faixa.
+  return {min:Math.ceil(centavos * 9 / 10) / 100, max:Math.floor(centavos * 11 / 10) / 100};
 }
 function _crmInt(v){
   var m = String(v == null ? "" : v).match(/\d+/);
@@ -9211,7 +9217,7 @@ function crmHouseCompatibilidade(n){
   return {
     matches: matches,
     novos: matches.filter(function(im){ return im._hbNovo; }).length,
-    texto: crmEscAttr(n.tipoImovel||'Tipo')+' → '+fmtV2(Number(n.valor||0))+' (faixa de '+fmtV2(crmHouseValorFaixa(n).min)+' a '+fmtV2(crmHouseValorFaixa(n).max)+', ±20%) → '+crmEscAttr(n.cidadeInteresse||'Cidade')+' → '+crmEscAttr(crmMatchDormsTexto(n))+' · '+crmEscAttr(n.op||'')
+    texto: crmEscAttr(n.tipoImovel||'Tipo')+' → '+fmtV2(Number(n.valor||0))+' (faixa de '+fmtV2(crmHouseValorFaixa(n).min)+' a '+fmtV2(crmHouseValorFaixa(n).max)+', ±10%) → '+crmEscAttr(n.cidadeInteresse||'Cidade')+' → '+crmEscAttr(crmMatchDormsTexto(n))+' · '+crmEscAttr(n.op||'')
   };
 }
 function crmHouseMatchAlert(n){
@@ -9246,7 +9252,7 @@ function atualizarCompatibilidadeModal(){
   var hb = crmHouseCompatibilidade(n);
   var lis = hb.matches.length ? '<ul>'+hb.matches.slice(0,6).map(function(im){
     return '<li><b>'+crmEscAttr(im.codigo||"Sem código")+'</b> - '+crmEscAttr(im.tipo||"")+' em '+crmEscAttr(im.cidade||'')+' · '+crmEscAttr(crmMatchDormsImovelTexto(im))+' - '+fmtV2(im._matchValor)+' <b>'+im._matchPct+'% de proximidade do valor</b>'+(im._hbNovo?' <b>NOVO</b>':'')+'</li>';
-  }).join("")+'</ul>' : '<br><small>Nenhum imóvel disponível no CRM corresponde ao tipo, à faixa de valor (±20%), à cidade e aos dormitórios informados, nesta modalidade. Imóveis sem quantidade de dormitórios cadastrada não entram quando esse filtro é selecionado.</small>';
+  }).join("")+'</ul>' : '<br><small>Nenhum imóvel disponível no CRM corresponde ao tipo, à faixa de valor (±10%), à cidade e aos dormitórios informados, nesta modalidade. Imóveis sem quantidade de dormitórios cadastrada não entram quando esse filtro é selecionado.</small>';
   el.innerHTML = '<strong>'+(hb.matches.length?'✨ DEU MATCH — imóveis compatíveis no CRM':'Imóveis compatíveis no CRM')+'</strong><br>'+hb.texto+lis+crmHousePesquisaHtml(n);
 }
 function crmLeadsCompativeisImovel(im){
@@ -9840,18 +9846,9 @@ function crmPipelineCardIndicadores(n, etapaColuna) {
 
 function crmPipelineCardResumo(n, opts) {
   opts = opts || {};
-  var fu = opts.fu || fuStatus(n && n.fu);
   var com = opts.com || comissaoNegocio(n);
   var imovel = opts.imovelDisplay || crmEscAttr(n.imovel || "Imovel nao informado");
   var valor = fmtV(crmValorAnunciado(n),n.op);
-  var proximo = n.fu ? fmtIso(n.fu) : "Sem data";
-  var meta = [];
-  if (n.tipoImovel) meta.push("Tipo: " + crmEscAttr(n.tipoImovel));
-  if (n.dorms !== undefined && n.dorms !== null && String(n.dorms).trim() !== "") meta.push("Dorms: " + crmEscAttr(n.dorms));
-  if (n.vagas !== undefined && n.vagas !== null && String(n.vagas).trim() !== "") meta.push("Vagas: " + crmEscAttr(n.vagas));
-  if (n.cidadeInteresse) meta.push("Cidade: " + crmEscAttr(n.cidadeInteresse));
-  if (n.bairroInteresse) meta.push("Bairro/Região: " + crmEscAttr(n.bairroInteresse));
-  if (n.entregaChaves) meta.push("Chaves: " + fmtIso(n.entregaChaves));
   var alerta = "";
   var entrega = crmStatusEntregaChaves(n);
   if (entrega && entrega.alert && entrega.alert !== "ok") {
@@ -9891,8 +9888,6 @@ function crmPipelineCardResumo(n, opts) {
     '</div>'+
     crmPipelineCardIndicadores(n, opts.etapaColuna)+
     '<div class="pcard-money"><strong>'+valor+'</strong><span>'+fmtV2(com.val)+'</span></div>'+
-    crmRenderProgressoProcessoCard(n)+
-    '<div class="pcard-meta"><span>Proximo contato: '+proximo+'</span>'+(meta.length ? '<span>'+meta.join(' | ')+'</span>' : '')+'</div>'+
     alerta+
     (visitaAcao ? '<div class="pcard-actions">'+visitaAcao+'</div>' : '');
 }
@@ -20877,7 +20872,7 @@ window.addEventListener('beforeunload',crmBackupAntesDeFechar);
       <h4>${r.closed?'Limitações do histórico disponível (não reabre a qualificação)':'O que falta confirmar'}</h4>${list(r.missing,'Revise se as informações continuam atuais.')}
       <h4>Imóveis disponíveis e compatíveis no CRM</h4>
       ${!can('cadastro','view')?'<p>Seu perfil não permite consultar o estoque.</p>':stock.length?list(stock.map(function(im){return [im.codigo,im.tipo,im.bairro,im.cidade,typeof fmtV2==='function'?fmtV2(im._matchValor):im._matchValor,im._matchPct+'% de proximidade do valor'].filter(Boolean).join(' · ');})):'<p>Sem imóveis disponíveis compatíveis com os critérios cadastrados. Complete tipo, modalidade, valor e cidade; dormitórios são considerados quando informados. Não foram criados anúncios ou valores.</p>'}
-      <p class="ai2-muted">Ordem: Tipo → Valor (±20%) → Cidade → Dormitórios. Somente estoque disponível no CRM; sem pesquisa externa nesta análise.</p>
+      <p class="ai2-muted">Ordem: Tipo → Valor (±10%) → Cidade → Dormitórios. Somente estoque disponível no CRM; sem pesquisa externa nesta análise.</p>
       ${oldMessage!==null?'<p class="ai2-observation">Rascunho editado preservado. Revise se a mensagem continua adequada à fase e à situação atual do negócio.</p>':''}
       <label>Mensagem pronta — revise antes do envio<textarea id="ai2-message" data-generated="${esc(r.message)}">${esc(oldMessage===null?r.message:oldMessage)}</textarea></label><div class="ai2-actions"><button class="btn btn-info" data-ai-action="copy">Copiar mensagem</button></div>
       <div id="ai2-task-host"></div>
